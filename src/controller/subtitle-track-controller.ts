@@ -7,7 +7,7 @@ import {
   findMatchingOption,
   inGroupOrNone,
   matchesOption,
-} from '../utils/rendition-helper';
+} from '../utils/rendition-selection';
 import { createTrackNode, getTrackKind } from '../utils/texttrack-utils';
 import type Hls from '../hls';
 import type {

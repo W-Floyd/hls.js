@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { AttrList } from '../../../src/utils/attr-list';
-import { matchesOption } from '../../../src/utils/rendition-helper';
+import { matchesOption } from '../../../src/utils/rendition-selection';
 import type {
   AudioSelectionOption,
   MediaAttributes,

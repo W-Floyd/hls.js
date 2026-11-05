@@ -10,11 +10,11 @@ import { Level } from '../types/level';
 import { LoaderContextType, PlaylistLevelType } from '../types/loader';
 import { ChunkMetadata } from '../types/transmuxer';
 import { alignStream } from '../utils/discontinuities';
+import { useAlternateAudio } from '../utils/rendition-helper';
 import {
   audioMatchPredicate,
   matchesOption,
-  useAlternateAudio,
-} from '../utils/rendition-helper';
+} from '../utils/rendition-selection';
 import type { FragmentTracker } from './fragment-tracker';
 import type { Bufferable } from '../hls';
 import type Hls from '../hls';

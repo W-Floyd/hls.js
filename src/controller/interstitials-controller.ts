@@ -35,7 +35,7 @@ import { isCompatibleTrackChange } from '../utils/mediasource-helper';
 import {
   getBasicSelectionOption,
   getVideoPreference,
-} from '../utils/rendition-helper';
+} from '../utils/rendition-selection';
 import { stringify } from '../utils/safe-json-stringify';
 import type {
   HlsAssetPlayerConfig,

@@ -1,5 +1,5 @@
+import { featureHooks } from './feature-hooks';
 import { logger } from './logger';
-import { substituteVariables } from './variable-substitution';
 import type { LevelDetails } from '../loader/level-details';
 import type { ParsedMultivariantPlaylist } from '../loader/m3u8-parser';
 
@@ -138,8 +138,10 @@ export class AttrList {
         }
       }
       if (parsed && (quotedString || hexadecimalSequence)) {
-        if (__USE_VARIABLE_SUBSTITUTION__) {
-          value = substituteVariables(parsed, value);
+        const variables =
+          __USE_VARIABLE_SUBSTITUTION__ && featureHooks.variableSubstitution;
+        if (variables) {
+          value = variables.substituteVariables(parsed, value);
         }
       } else if (!hexadecimalSequence && !quotedString) {
         switch (name) {

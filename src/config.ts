@@ -1,33 +1,32 @@
 import AbrController from './controller/abr-controller';
-import AudioStreamController from './controller/audio-stream-controller';
-import AudioTrackController from './controller/audio-track-controller';
 import BufferController from './controller/buffer-controller';
-import CapLevelController from './controller/cap-level-controller';
-import CMCDController from './controller/cmcd-controller';
-import ContentSteeringController from './controller/content-steering-controller';
-import EMEController from './controller/eme-controller';
 import ErrorController from './controller/error-controller';
-import FPSController from './controller/fps-controller';
 import GapController from './controller/gap-controller';
-import ID3TrackController from './controller/id3-track-controller';
-import { IFrameController } from './controller/iframe-controller';
-import InterstitialsController from './controller/interstitials-controller';
-import LatencyController from './controller/latency-controller';
 import StreamController from './controller/stream-controller';
-import { SubtitleStreamController } from './controller/subtitle-stream-controller';
-import SubtitleTrackController from './controller/subtitle-track-controller';
-import { TimelineController } from './controller/timeline-controller';
-import Cues from './utils/cues';
 import FetchLoader, { fetchSupported } from './utils/fetch-loader';
-import { requestMediaKeySystemAccess } from './utils/mediakeys-helper';
 import { clamp } from './utils/number';
 import { stringify } from './utils/safe-json-stringify';
 import XhrLoader from './utils/xhr-loader';
+import type AudioStreamController from './controller/audio-stream-controller';
+import type AudioTrackController from './controller/audio-track-controller';
+import type CapLevelController from './controller/cap-level-controller';
+import type CMCDController from './controller/cmcd-controller';
+import type ContentSteeringController from './controller/content-steering-controller';
 import type {
   GenerateRequestFilterResult,
   LicenseRequestReason,
   MediaKeySessionContext,
 } from './controller/eme-controller';
+import type EMEController from './controller/eme-controller';
+import type FPSController from './controller/fps-controller';
+import type ID3TrackController from './controller/id3-track-controller';
+import type { IFrameController } from './controller/iframe-controller';
+import type InterstitialsController from './controller/interstitials-controller';
+import type LatencyController from './controller/latency-controller';
+import type { SubtitleStreamController } from './controller/subtitle-stream-controller';
+import type SubtitleTrackController from './controller/subtitle-track-controller';
+import type { TimelineController } from './controller/timeline-controller';
+import type { MuxConfig } from './demux/transmuxer';
 import type Hls from './hls';
 import type { LevelKey } from './loader/level-key';
 import type {
@@ -44,6 +43,10 @@ import type {
 } from './types/media-playlist';
 import type { CuesInterface } from './utils/cues';
 import type { ILogger } from './utils/logger';
+import type {
+  getMediaDecodingInfoPromise,
+  requiresMediaCapabilitiesDecodingInfo,
+} from './utils/mediacapabilities-helper';
 import type { KeySystems, MediaKeyFunc } from './utils/mediakeys-helper';
 import type {
   CmcdCustomKey,
@@ -317,7 +320,7 @@ export type MetadataControllerConfig = {
 };
 
 export type TimelineControllerConfig = {
-  cueHandler: CuesInterface;
+  cueHandler?: CuesInterface;
   enableWebVTT: boolean;
   enableIMSC1: boolean;
   enableCEA708Captions: boolean;
@@ -386,6 +389,13 @@ export type HlsConfig = {
   latencyController?: typeof LatencyController;
   // Interstitial Controller (setting to null disables Interstitials parsing and playback)
   interstitialsController?: typeof InterstitialsController;
+  // MediaCapabilities decodingInfo checks used with `useMediaCapabilities`
+  mediaDecodingInfo?: {
+    requiresMediaCapabilitiesDecodingInfo: typeof requiresMediaCapabilitiesDecodingInfo;
+    getMediaDecodingInfoPromise: typeof getMediaDecodingInfoPromise;
+  };
+  // Demuxer/remuxer pairs probed after fMP4 (MPEG-TS and packed audio)
+  muxers?: MuxConfig[];
   // Option to disable internal playback handling of Interstitials (set to false to disable Interstitials playback without disabling parsing and schedule events)
   enableInterstitialPlayback: boolean;
   // Option to disable appending Interstitials inline on same timeline and MediaSource as Primary media
@@ -442,7 +452,7 @@ const defaultLoadPolicy: LoaderConfig = {
  * It is cloned whenever a new Hls instance is created, by keeping the config
  * shallow the properties are cloned, and we don't end up manipulating the default
  */
-export const hlsDefaultConfig: HlsConfig = {
+export const hlsCoreConfig: HlsConfig = {
   autoStartLoad: true, // used by stream-controller
   startPosition: -1, // used by stream-controller
   defaultAudioCodec: undefined, // used by stream-controller
@@ -520,9 +530,7 @@ export const hlsDefaultConfig: HlsConfig = {
   widevineLicenseUrl: undefined, // used by eme-controller
   drmSystems: {}, // used by eme-controller
   drmSystemOptions: {}, // used by eme-controller
-  requestMediaKeySystemAccessFunc: __USE_EME_DRM__
-    ? requestMediaKeySystemAccess
-    : null, // used by eme-controller
+  requestMediaKeySystemAccessFunc: null, // used by eme-controller
   requireKeySystemAccessOnStart: false, // used by eme-controller
   reuseKeySessions: false, // used by eme-controller
   testBandwidth: true,
@@ -666,38 +674,14 @@ export const hlsDefaultConfig: HlsConfig = {
   streamController: StreamController,
   abrController: AbrController,
   bufferController: BufferController,
-  capLevelController: CapLevelController,
   errorController: ErrorController,
-  fpsController: FPSController,
-  id3TrackController: ID3TrackController,
   gapController: GapController,
-  latencyController: LatencyController,
 
-  // Dynamic Modules
   ...timelineConfig(),
-  subtitleStreamController: __USE_SUBTITLES__
-    ? SubtitleStreamController
-    : undefined,
-  subtitleTrackController: __USE_SUBTITLES__
-    ? SubtitleTrackController
-    : undefined,
-  timelineController: __USE_SUBTITLES__ ? TimelineController : undefined,
-  audioStreamController: __USE_ALT_AUDIO__ ? AudioStreamController : undefined,
-  audioTrackController: __USE_ALT_AUDIO__ ? AudioTrackController : undefined,
-  emeController: __USE_EME_DRM__ ? EMEController : undefined,
-  cmcdController: __USE_CMCD__ ? CMCDController : undefined,
-  contentSteeringController: __USE_CONTENT_STEERING__
-    ? ContentSteeringController
-    : undefined,
-  iframeController: __USE_IFRAMES__ ? IFrameController : undefined,
-  interstitialsController: __USE_INTERSTITIALS__
-    ? InterstitialsController
-    : undefined,
 };
 
 function timelineConfig(): TimelineControllerConfig {
   return {
-    cueHandler: Cues, // used by timeline-controller
     enableWebVTT: __USE_SUBTITLES__, // used by timeline-controller
     enableIMSC1: __USE_SUBTITLES__, // used by timeline-controller
     enableCEA708Captions: __USE_SUBTITLES__, // used by timeline-controller

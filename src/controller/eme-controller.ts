@@ -35,7 +35,8 @@ import {
   requestMediaKeySystemAccess,
 } from '../utils/mediakeys-helper';
 import { KeySystemFormats } from '../utils/mediakeys-helper';
-import { parseMultiPssh, parseSinf } from '../utils/mp4-tools';
+import { parseMultiPssh } from '../utils/mp4-pssh';
+import { parseSinf } from '../utils/mp4-tools';
 import { base64Decode, bin2str } from '../utils/numeric-encoding-utils';
 import { stringify } from '../utils/safe-json-stringify';
 import { strToUtf8array } from '../utils/utf8-utils';

@@ -1,0 +1,27 @@
+# docker compose -f cdn/docker-compose.yml up --build
+services:
+  hls-bundles:
+    build:
+      context: ..
+      dockerfile: cdn/Dockerfile
+    image: hls-bundles
+    ports:
+      - '8080:8080'
+    environment:
+      CACHE_CONTROL: public, max-age=3600
+      CACHE_PRUNE_AFTER_HOURS: '24'
+      CACHE_MAX_SIZE: 1G
+    volumes:
+      - bundle-cache:/cache
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+    restart: unless-stopped
+
+volumes:
+  bundle-cache:

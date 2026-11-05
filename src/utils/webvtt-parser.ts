@@ -1,8 +1,8 @@
 import { utf8ArrayToStr } from '@svta/cml-id3';
 import { hash } from './hash';
 import { toMpegTsClockFromTimescale } from './timescale-conversion';
+import { normalizePts } from './timescale-conversion';
 import { VTTParser } from './vttparser';
-import { normalizePts } from '../remux/mp4-remuxer';
 import type { TimestampOffset } from './timescale-conversion';
 import type { VTTCCs } from '../types/vtt';
 

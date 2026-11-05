@@ -11,7 +11,7 @@ import EMEController from './controller/eme-controller';
 import ErrorController from './controller/error-controller';
 import FPSController from './controller/fps-controller';
 import SubtitleTrackController from './controller/subtitle-track-controller';
-import Hls from './hls';
+import Hls from './exports-default';
 import M3U8Parser from './loader/m3u8-parser';
 import BaseLoader from './utils/base-loader';
 import Cues from './utils/cues';

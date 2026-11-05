@@ -45,7 +45,7 @@ import {
   getPartWith,
   updateFragPTSDTS,
 } from '../utils/level-helper';
-import { estimatedAudioBitrate } from '../utils/mediacapabilities-helper';
+import { estimatedAudioBitrate } from '../utils/media-decoding-info';
 import { appendUint8Array } from '../utils/mp4-tools';
 import { timeRangesToString } from '../utils/time-ranges';
 import type { HlsConfig } from '../config';

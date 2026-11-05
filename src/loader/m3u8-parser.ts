@@ -5,13 +5,8 @@ import { LevelDetails } from './level-details';
 import { LevelKey } from './level-key';
 import { AttrList } from '../utils/attr-list';
 import { isCodecType } from '../utils/codecs';
+import { featureHooks } from '../utils/feature-hooks';
 import { logger } from '../utils/logger';
-import {
-  addVariableDefinition,
-  hasVariableReferences,
-  importVariableDefinition,
-  substituteVariables,
-} from '../utils/variable-substitution';
 import type { MediaFragment } from './fragment';
 import type { ContentSteeringOptions } from '../types/events';
 import type {
@@ -106,8 +101,10 @@ export default class M3U8Parser {
     string: string,
     baseurl: string,
   ): ParsedMultivariantPlaylist {
-    const hasVariableRefs = __USE_VARIABLE_SUBSTITUTION__
-      ? hasVariableReferences(string)
+    const variables =
+      __USE_VARIABLE_SUBSTITUTION__ && featureHooks.variableSubstitution;
+    const hasVariableRefs = variables
+      ? variables.hasVariableReferences(string)
       : false;
     const parsed: ParsedMultivariantPlaylist = {
       contentSteering: null,
@@ -194,9 +191,13 @@ export default class M3U8Parser {
           }
           case 'DEFINE': {
             // #EXT-X-DEFINE
-            if (__USE_VARIABLE_SUBSTITUTION__) {
+            if (variables) {
               const variableAttributes = new AttrList(attributes, parsed);
-              addVariableDefinition(parsed, variableAttributes, baseurl);
+              variables.addVariableDefinition(
+                parsed,
+                variableAttributes,
+                baseurl,
+              );
             }
             break;
           }
@@ -345,8 +346,10 @@ export default class M3U8Parser {
 
     LEVEL_PLAYLIST_REGEX_FAST.lastIndex = 0;
     level.m3u8 = string;
-    level.hasVariableRefs = __USE_VARIABLE_SUBSTITUTION__
-      ? hasVariableReferences(string)
+    const variables =
+      __USE_VARIABLE_SUBSTITUTION__ && featureHooks.variableSubstitution;
+    level.hasVariableRefs = variables
+      ? variables.hasVariableReferences(string)
       : false;
     if (LEVEL_PLAYLIST_REGEX_FAST.exec(string)?.[0] !== '#EXTM3U') {
       level.playlistParsingError = new Error(
@@ -401,8 +404,8 @@ export default class M3U8Parser {
           frag.cc = discontinuityCounter;
           // avoid sliced strings    https://github.com/video-dev/hls.js/issues/939
           const uri = (' ' + result[3]).slice(1);
-          frag.relurl = __USE_VARIABLE_SUBSTITUTION__
-            ? substituteVariables(level, uri)
+          frag.relurl = variables
+            ? variables.substituteVariables(level, uri)
             : uri;
           assignProgramDateTime(
             frag as MediaFragment,
@@ -586,16 +589,20 @@ export default class M3U8Parser {
             break;
           }
           case 'DEFINE': {
-            if (__USE_VARIABLE_SUBSTITUTION__) {
+            if (variables) {
               const variableAttributes = new AttrList(value1, level);
               if ('IMPORT' in variableAttributes) {
-                importVariableDefinition(
+                variables.importVariableDefinition(
                   level,
                   variableAttributes,
                   multivariantVariableList,
                 );
               } else {
-                addVariableDefinition(level, variableAttributes, baseurl);
+                variables.addVariableDefinition(
+                  level,
+                  variableAttributes,
+                  baseurl,
+                );
               }
             }
             break;
@@ -814,9 +821,9 @@ function createVariant(
     // URI line or attribute is required. Ignore entry if missing.
     return null;
   }
-  const uri = __USE_VARIABLE_SUBSTITUTION__
-    ? substituteVariables(parsed, tUri)
-    : tUri;
+  const variables =
+    __USE_VARIABLE_SUBSTITUTION__ && featureHooks.variableSubstitution;
+  const uri = variables ? variables.substituteVariables(parsed, tUri) : tUri;
   const level: LevelParsed = {
     attrs,
     bitrate:

@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { hlsDefaultConfig } from '../../../src/config';
+import { hlsDefaultConfig } from '../../../src/config-default';
 import { LoaderContextType } from '../../../src/types/loader';
 import FetchLoader from '../../../src/utils/fetch-loader';
 import type { LoaderConfig } from '../../../src/config';

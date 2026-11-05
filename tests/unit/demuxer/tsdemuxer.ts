@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import EventEmitter from 'eventemitter3';
-import { hlsDefaultConfig } from '../../../src/config';
+import { hlsDefaultConfig } from '../../../src/config-default';
 import TSDemuxer from '../../../src/demux/tsdemuxer';
 import { ChunkMetadata } from '../../../src/types/transmuxer';
 import { logger } from '../../../src/utils/logger';

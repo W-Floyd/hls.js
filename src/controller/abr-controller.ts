@@ -5,11 +5,7 @@ import { PlaylistLevelType } from '../types/loader';
 import { isPenaltyExpired } from '../utils/error-helper';
 import EwmaBandWidthEstimator from '../utils/ewma-bandwidth-estimator';
 import { Logger } from '../utils/logger';
-import {
-  getMediaDecodingInfoPromise,
-  requiresMediaCapabilitiesDecodingInfo,
-  SUPPORTED_INFO_DEFAULT,
-} from '../utils/mediacapabilities-helper';
+import { SUPPORTED_INFO_DEFAULT } from '../utils/media-decoding-info';
 import {
   type AudioTracksByGroup,
   type CodecSetTier,
@@ -852,8 +848,10 @@ class AbrController extends Logger implements AbrComponentAPI {
       if (!levelInfo) {
         continue;
       }
+      const decodingInfo =
+        __USE_MEDIA_CAPABILITIES__ && config.mediaDecodingInfo;
       if (
-        __USE_MEDIA_CAPABILITIES__ &&
+        decodingInfo &&
         config.useMediaCapabilities &&
         !levelInfo.supportedResult &&
         !levelInfo.supportedPromise
@@ -863,7 +861,7 @@ class AbrController extends Logger implements AbrComponentAPI {
           | undefined;
         if (
           typeof mediaCapabilities?.decodingInfo === 'function' &&
-          requiresMediaCapabilitiesDecodingInfo(
+          decodingInfo.requiresMediaCapabilitiesDecodingInfo(
             levelInfo,
             audioTracksByGroup,
             currentVideoRange,
@@ -872,7 +870,7 @@ class AbrController extends Logger implements AbrComponentAPI {
             audioPreference,
           )
         ) {
-          levelInfo.supportedPromise = getMediaDecodingInfoPromise(
+          levelInfo.supportedPromise = decodingInfo.getMediaDecodingInfoPromise(
             levelInfo,
             audioTracksByGroup,
             mediaCapabilities,

@@ -45,6 +45,11 @@ module.exports = {
     __USE_MEDIA_CAPABILITIES__: true,
     __USE_INTERSTITIALS__: true,
     __USE_IFRAMES__: true,
+    __USE_MPEG_TS__: true,
+    __USE_CAP_LEVEL__: true,
+    __USE_FPS__: true,
+    __USE_METADATA__: true,
+    __USE_LATENCY__: true,
   },
   // see https://github.com/standard/eslint-config-standard
   // 'prettier' (https://github.com/prettier/eslint-config-prettier) must be last

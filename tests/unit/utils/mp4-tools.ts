@@ -5,6 +5,10 @@ import MP4 from '../../../src/remux/mp4-generator';
 import { ChunkMetadata } from '../../../src/types/transmuxer';
 import { logger } from '../../../src/utils/logger';
 import {
+  remuxVideoOnlyIFrameMoof,
+  videoOnlyInitSegment,
+} from '../../../src/utils/mp4-iframes';
+import {
   appendUint8Array,
   discardEPB,
   findBox,
@@ -12,9 +16,7 @@ import {
   parseEmsg,
   parseInitSegment,
   parseSEIMessageFromNALu,
-  remuxVideoOnlyIFrameMoof,
   types,
-  videoOnlyInitSegment,
 } from '../../../src/utils/mp4-tools';
 import type { TrackFragmentSample } from '../../../src/remux/mp4-generator';
 import type { UserdataSample } from '../../../src/types/demuxer';

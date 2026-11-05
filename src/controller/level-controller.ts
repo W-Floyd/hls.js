@@ -11,7 +11,7 @@ import {
   videoCodecPreferenceValue,
 } from '../utils/codecs';
 import { reassignFragmentLevelIndexes } from '../utils/level-helper';
-import { getUnsupportedResult } from '../utils/mediacapabilities-helper';
+import { getUnsupportedResult } from '../utils/media-decoding-info';
 import { stringify } from '../utils/safe-json-stringify';
 import type ContentSteeringController from './content-steering-controller';
 import type Hls from '../hls';

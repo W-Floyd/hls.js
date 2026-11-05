@@ -6,7 +6,7 @@ import { ImageIFrameStreamController } from './image-iframe-stream-controller';
 import { Events } from '../events';
 import { type LoaderStats, PlaylistLevelType } from '../types/loader';
 import { Logger } from '../utils/logger';
-import { getVideoPreference } from '../utils/rendition-helper';
+import { getVideoPreference } from '../utils/rendition-selection';
 import type { HlsConfig } from '../config';
 import type Hls from '../hls';
 import type { LevelDetails } from '../loader/level-details';

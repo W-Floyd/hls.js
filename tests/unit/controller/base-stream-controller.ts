@@ -1,7 +1,7 @@
 import { expect, use } from 'chai';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
-import { hlsDefaultConfig } from '../../../src/config';
+import { hlsDefaultConfig } from '../../../src/config-default';
 import { State } from '../../../src/controller/base-stream-controller';
 import { SOURCE_BUFFER_ERROR_NAME } from '../../../src/controller/buffer-controller';
 import { FragmentState } from '../../../src/controller/fragment-tracker';

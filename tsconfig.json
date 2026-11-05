@@ -15,7 +15,8 @@
     "rollup.config.js",
     "build-config.js",
     "lint-staged.config.js",
-    "scripts/**/*"
+    "scripts/**/*",
+    "cdn/**/*.js"
   ],
   "exclude": [
     "node_modules",

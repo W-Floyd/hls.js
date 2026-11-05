@@ -1,4 +1,6 @@
 import 'promise-polyfill/src/polyfill';
+// Unit tests construct Hls from src/hls, which defaults to core config only.
+import '../src/exports-default';
 import './unit/hls';
 import './unit/events';
 import './e2e/cmcd';

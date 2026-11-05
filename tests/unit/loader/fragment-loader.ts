@@ -1,7 +1,8 @@
 import { expect, use } from 'chai';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
-import { hlsDefaultConfig, mergeConfig } from '../../../src/config';
+import { mergeConfig } from '../../../src/config';
+import { hlsDefaultConfig } from '../../../src/config-default';
 import { ErrorDetails, ErrorTypes } from '../../../src/errors';
 import { Fragment } from '../../../src/loader/fragment';
 import FragmentLoader, { LoadError } from '../../../src/loader/fragment-loader';

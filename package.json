@@ -23,6 +23,12 @@
       "import": "./dist/hls.light.mjs",
       "require": "./dist/hls.light.js"
     },
+    "./core": {
+      "import": "./dist/core/core.mjs"
+    },
+    "./features/*": {
+      "import": "./dist/core/features/*.mjs"
+    },
     "./dist/*": "./dist/*",
     "./package.json": "./package.json"
   },
@@ -111,6 +117,7 @@
     "debounce": "1.2.1",
     "doctoc": "2.5.0",
     "es-check": "9.6.4",
+    "esbuild": "0.28.2",
     "eslint": "8.57.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import": "2.32.0",

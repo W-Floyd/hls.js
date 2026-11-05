@@ -1,12 +1,7 @@
-import AACDemuxer from './audio/aacdemuxer';
-import { AC3Demuxer } from './audio/ac3-demuxer';
-import MP3Demuxer from './audio/mp3demuxer';
 import Decrypter from '../crypt/decrypter';
 import MP4Demuxer from '../demux/mp4demuxer';
-import TSDemuxer from '../demux/tsdemuxer';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
-import MP4Remuxer from '../remux/mp4-remuxer';
 import PassThroughRemuxer from '../remux/passthrough-remuxer';
 import {
   getAesModeFromFullSegmentMethod,
@@ -31,23 +26,27 @@ try {
   now = Date.now;
 }
 
-type MuxConfig =
-  | { demux: typeof MP4Demuxer; remux: typeof PassThroughRemuxer }
-  | { demux: typeof TSDemuxer; remux: typeof MP4Remuxer }
-  | { demux: typeof AC3Demuxer; remux: typeof MP4Remuxer }
-  | { demux: typeof AACDemuxer; remux: typeof MP4Remuxer }
-  | { demux: typeof MP3Demuxer; remux: typeof MP4Remuxer };
+export type MuxConfig = {
+  demux: {
+    new (
+      observer: HlsEventEmitter,
+      config: HlsConfig,
+      typeSupported: TypeSupported,
+      logger: ILogger,
+    ): Demuxer;
+    probe(data: Uint8Array | undefined, logger: ILogger): boolean;
+  };
+  remux: {
+    new (
+      observer: HlsEventEmitter,
+      config: HlsConfig,
+      typeSupported: TypeSupported,
+      logger: ILogger,
+    ): Remuxer;
+  };
+};
 
-const muxConfig: MuxConfig[] = [
-  { demux: MP4Demuxer, remux: PassThroughRemuxer },
-  { demux: TSDemuxer, remux: MP4Remuxer },
-  { demux: AACDemuxer, remux: MP4Remuxer },
-  { demux: MP3Demuxer, remux: MP4Remuxer },
-];
-
-if (__USE_M2TS_ADVANCED_CODECS__) {
-  muxConfig.splice(2, 0, { demux: AC3Demuxer, remux: MP4Remuxer });
-}
+const fmp4Mux: MuxConfig = { demux: MP4Demuxer, remux: PassThroughRemuxer };
 
 export default class Transmuxer {
   private asyncResult: boolean = false;
@@ -63,6 +62,7 @@ export default class Transmuxer {
   private decryptionPromise: Promise<TransmuxerResult> | null = null;
   private transmuxConfig!: TransmuxConfig;
   private currentTransmuxState!: TransmuxState;
+  private muxers: MuxConfig[];
 
   constructor(
     observer: HlsEventEmitter,
@@ -77,6 +77,7 @@ export default class Transmuxer {
     this.config = config;
     this.id = id;
     this.logger = logger;
+    this.muxers = [fmp4Mux, ...(config.muxers || [])];
   }
 
   configure(transmuxConfig: TransmuxConfig) {
@@ -151,7 +152,10 @@ export default class Transmuxer {
       const segmentFormatData =
         chunkMeta.iframe &&
         initSegmentData &&
-        TSDemuxer.probe(initSegmentData, this.logger)
+        this.muxers.some(
+          (mux) =>
+            mux !== fmp4Mux && mux.demux.probe(initSegmentData, this.logger),
+        )
           ? initSegmentData
           : uintData;
       const error = this.configureTransmuxer(segmentFormatData);
@@ -466,16 +470,16 @@ export default class Transmuxer {
   }
 
   private configureTransmuxer(data: Uint8Array): undefined | Error {
-    const { config, observer, typeSupported } = this;
+    const { config, observer, typeSupported, muxers } = this;
     if (!observer) {
       return;
     }
     // probe for content type
     let mux: MuxConfig | undefined;
     try {
-      for (let i = 0, len = muxConfig.length; i < len; i++) {
-        if (muxConfig[i].demux?.probe(data, this.logger)) {
-          mux = muxConfig[i];
+      for (let i = 0, len = muxers.length; i < len; i++) {
+        if (muxers[i].demux.probe(data, this.logger)) {
+          mux = muxers[i];
           break;
         }
       }
@@ -483,7 +487,9 @@ export default class Transmuxer {
       return error;
     }
     if (!mux) {
-      return new Error('Failed to find demuxer by probing fragment data');
+      return new Error(
+        `Failed to find demuxer by probing fragment data${muxers.length > 1 ? '' : ' (only fMP4 is configured; MPEG-TS and packed audio need the mpegTs feature)'}`,
+      );
     }
     // so let's check that current remuxer and demuxer are still valid
     const demuxer = this.demuxer;

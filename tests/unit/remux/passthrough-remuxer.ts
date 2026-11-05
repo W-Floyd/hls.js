@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import EventEmitter from 'eventemitter3';
-import { hlsDefaultConfig } from '../../../src/config';
+import { hlsDefaultConfig } from '../../../src/config-default';
 import MP4 from '../../../src/remux/mp4-generator';
 import PassThroughRemuxer from '../../../src/remux/passthrough-remuxer';
 import { PlaylistLevelType } from '../../../src/types/loader';

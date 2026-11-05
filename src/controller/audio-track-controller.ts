@@ -3,14 +3,14 @@ import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
 import { LoaderContextType } from '../types/loader';
 import { mediaAttributesIdentical } from '../utils/media-option-attributes';
+import { useAlternateAudio } from '../utils/rendition-helper';
 import {
   audioMatchPredicate,
   findClosestLevelWithAudioGroup,
   findMatchingOption,
   inGroupOrNone,
   matchesOption,
-  useAlternateAudio,
-} from '../utils/rendition-helper';
+} from '../utils/rendition-selection';
 import type Hls from '../hls';
 import type {
   AudioTrackLoadedData,

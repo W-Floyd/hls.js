@@ -2,7 +2,7 @@ import { setQueryParam } from '../utils/url-tools';
 import type { MediaPlaylist } from './media-playlist';
 import type { LevelDetails } from '../loader/level-details';
 import type { AttrList } from '../utils/attr-list';
-import type { MediaDecodingInfo } from '../utils/mediacapabilities-helper';
+import type { MediaDecodingInfo } from '../utils/media-decoding-info';
 
 export interface LevelParsed extends CodecsParsed {
   attrs: LevelAttributes;

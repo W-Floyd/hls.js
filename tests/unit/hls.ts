@@ -1,7 +1,7 @@
 import { expect, use } from 'chai';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
-import { hlsDefaultConfig } from '../../src/config';
+import { hlsDefaultConfig } from '../../src/config-default';
 import { ErrorDetails, ErrorTypes } from '../../src/errors';
 import { Events } from '../../src/events';
 import Hls from '../../src/hls';

@@ -1,6 +1,7 @@
 import { Events } from '../events';
 import { PlaylistLevelType } from '../types/loader';
 import Cea608Parser from '../utils/cea-608-parser';
+import Cues from '../utils/cues';
 import { IMSC1_CODEC, parseIMSC1 } from '../utils/imsc1-ttml-parser';
 import { subtitleOptionsIdentical } from '../utils/media-option-attributes';
 import { appendUint8Array } from '../utils/mp4-tools';
@@ -70,7 +71,7 @@ export class TimelineController implements ComponentAPI {
   constructor(hls: Hls) {
     this.hls = hls;
     this.config = hls.config;
-    this.Cues = hls.config.cueHandler;
+    this.Cues = hls.config.cueHandler || Cues;
     this.cueCache = {};
 
     this.captionsProperties = {

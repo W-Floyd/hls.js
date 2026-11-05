@@ -64,6 +64,11 @@ const flags = {
   mediaCapabilities: readFeatureFlag('MEDIA_CAPABILITIES'),
   interstitials: readFeatureFlag('INTERSTITIALS'),
   iframes: readFeatureFlag('IFRAMES'),
+  mpegTs: readFeatureFlag('MPEG_TS'),
+  capLevel: readFeatureFlag('CAP_LEVEL'),
+  fps: readFeatureFlag('FPS'),
+  metadata: readFeatureFlag('METADATA'),
+  latency: readFeatureFlag('LATENCY'),
 };
 
 function getFeatureSupport(type) {
@@ -78,6 +83,11 @@ function getFeatureSupport(type) {
     mediaCapabilities: isFeatureEnabled(type, flags.mediaCapabilities),
     interstitials: isFeatureEnabled(type, flags.interstitials),
     iframes: isFeatureEnabled(type, flags.iframes),
+    mpegTs: isFeatureEnabled(type, flags.mpegTs, true),
+    capLevel: isFeatureEnabled(type, flags.capLevel, true),
+    fps: isFeatureEnabled(type, flags.fps, true),
+    metadata: isFeatureEnabled(type, flags.metadata, true),
+    latency: isFeatureEnabled(type, flags.latency, true),
   };
 }
 
@@ -103,6 +113,11 @@ const buildConstants = (
     __USE_MEDIA_CAPABILITIES__: JSON.stringify(features.mediaCapabilities),
     __USE_INTERSTITIALS__: JSON.stringify(features.interstitials),
     __USE_IFRAMES__: JSON.stringify(features.iframes),
+    __USE_MPEG_TS__: JSON.stringify(features.mpegTs),
+    __USE_CAP_LEVEL__: JSON.stringify(features.capLevel),
+    __USE_FPS__: JSON.stringify(features.fps),
+    __USE_METADATA__: JSON.stringify(features.metadata),
+    __USE_LATENCY__: JSON.stringify(features.latency),
 
     ...additional,
   },
@@ -331,6 +346,42 @@ function getAliasesForDist(format, features) {
     };
   }
 
+  const featureModules = {
+    subtitles: 'subtitles',
+    altAudio: 'alt-audio',
+    emeDrm: 'eme-drm',
+    cmcd: 'cmcd',
+    contentSteering: 'content-steering',
+    interstitials: 'interstitials',
+    iframes: 'iframes',
+    mpegTs: 'mpeg-ts',
+    capLevel: 'cap-level',
+    fps: 'fps',
+    metadata: 'metadata',
+    latency: 'latency',
+    mediaCapabilities: 'media-capabilities',
+    variableSubstitution: 'variable-substitution',
+  };
+  Object.keys(featureModules).forEach((feature) => {
+    if (!features[feature]) {
+      aliases[`./features/${featureModules[feature]}`] = `./${emptyFile}`;
+      aliases[`../features/${featureModules[feature]}`] = `../${emptyFile}`;
+    }
+  });
+
+  if (!features.iframes) {
+    aliases['./iframe-remux'] = `../${emptyFile}`;
+    aliases['../features/iframe-remux'] = `../${emptyFile}`;
+  }
+
+  // Exported by name from exports-named
+  if (!features.capLevel) {
+    aliases['./controller/cap-level-controller'] = `./${emptyFile}`;
+  }
+  if (!features.fps) {
+    aliases['./controller/fps-controller'] = `./${emptyFile}`;
+  }
+
   return aliases;
 }
 
@@ -343,10 +394,10 @@ const buildRollupConfig = ({
   sourcemap = true,
   outputFile = null,
   input = './src/exports-default.ts',
+  outputName = buildTypeToOutputName[type],
+  featureSupport = getFeatureSupport(type),
 }) => {
-  const outputName = buildTypeToOutputName[type];
   const extension = format === FORMAT.esm ? 'mjs' : 'js';
-  const featureSupport = getFeatureSupport(type);
   const distAliases = getAliasesForDist(format, featureSupport);
 
   return {
@@ -384,6 +435,65 @@ const buildRollupConfig = ({
         ? [istanbul({ exclude: ['tests/**/*', 'node_modules/**/*'] })]
         : []),
     ],
+  };
+};
+
+const coreFeatures = [
+  'alt-audio',
+  'cap-level',
+  'cmcd',
+  'content-steering',
+  'eme-drm',
+  'fps',
+  'iframes',
+  'interstitials',
+  'latency',
+  'media-capabilities',
+  'metadata',
+  'mpeg-ts',
+  'subtitles',
+  'variable-substitution',
+];
+
+// Code-split ESM: `core` plus one entry per feature. Feature code is compiled
+// in (full flags) but only reaches a client that imports its entry.
+const buildCoreRollupConfig = ({ minified }) => {
+  const base = buildRollupConfig({
+    type: BUILD_TYPE.full,
+    format: FORMAT.esm,
+    minified,
+    input: './src/exports-core.ts',
+  });
+  const input = { core: './src/exports-core.ts' };
+  coreFeatures.forEach((name) => {
+    input[`features/${name}`] = `./src/features/${name}.ts`;
+  });
+  let coreModules;
+  return {
+    ...base,
+    input,
+    output: {
+      format: FORMAT.esm,
+      dir: minified ? './dist/core.min' : './dist/core',
+      entryFileNames: '[name].mjs',
+      chunkFileNames: 'chunks/[name].mjs',
+      sourcemap: true,
+      // Everything core loads goes in one chunk: many small chunks compress
+      // worse and cost requests. Only feature-only modules stay split.
+      manualChunks(id, { getModuleInfo }) {
+        if (!coreModules) {
+          coreModules = new Set();
+          const entry = path.resolve('src/exports-core.ts');
+          const visit = (moduleId) => {
+            if (coreModules.has(moduleId)) return;
+            coreModules.add(moduleId);
+            getModuleInfo(moduleId)?.importedIds.forEach(visit);
+          };
+          visit(entry);
+        }
+        return coreModules.has(id) ? 'core' : undefined;
+      },
+    },
   };
 };
 
@@ -432,6 +542,8 @@ const configs = Object.entries({
     format: FORMAT.esm,
     minified: true,
   }),
+  core: buildCoreRollupConfig({ minified: false }),
+  coreMin: buildCoreRollupConfig({ minified: true }),
   worker: {
     input: './src/demux/transmuxer-worker.ts',
     onLog: buildOnLog(),

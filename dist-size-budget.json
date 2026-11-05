@@ -2,7 +2,8 @@
   "$comment": [
     "Brotli byte budgets for dist/, enforced by `npm run size:check`.",
     "Raise a number here in the PR that grows the bundle. `npm run size` prints",
-    "current sizes. `tolerance` allows a 2% margin over each budget."
+    "current sizes. `tolerance` allows a 2% margin over each budget.",
+    "ES module entries are measured with every chunk they statically import, so core.min/features/* is core plus that feature."
   ],
   "tolerance": 0.02,
   "files": {
@@ -14,6 +15,21 @@
     "hls.light.min.js": 99919,
     "hls.light.mjs": 177621,
     "hls.light.min.mjs": 97137,
-    "hls.worker.js": 35918
+    "hls.worker.js": 35918,
+    "core.min/core.mjs": 81408,
+    "core.min/features/alt-audio.mjs": 88372,
+    "core.min/features/cap-level.mjs": 82535,
+    "core.min/features/cmcd.mjs": 87962,
+    "core.min/features/content-steering.mjs": 83866,
+    "core.min/features/eme-drm.mjs": 90010,
+    "core.min/features/fps.mjs": 81920,
+    "core.min/features/iframes.mjs": 86938,
+    "core.min/features/interstitials.mjs": 96973,
+    "core.min/features/latency.mjs": 82637,
+    "core.min/features/metadata.mjs": 84992,
+    "core.min/features/mpeg-ts.mjs": 98816,
+    "core.min/features/subtitles.mjs": 99226,
+    "core.min/features/media-capabilities.mjs": 82330,
+    "core.min/features/variable-substitution.mjs": 81716
   }
 }

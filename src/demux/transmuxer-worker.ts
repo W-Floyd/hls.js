@@ -2,6 +2,8 @@ import { EventEmitter } from 'eventemitter3';
 import Transmuxer, { isPromise } from '../demux/transmuxer';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
+import '../features/iframe-remux';
+import { mpegTs } from '../features/mpeg-ts';
 import { enableLogs, type ILogger } from '../utils/logger';
 import type { RemuxedTrack, RemuxerResult } from '../types/remuxer';
 import type { ChunkMetadata, TransmuxerResult } from '../types/transmuxer';
@@ -29,6 +31,10 @@ function startWorker() {
     }
     if (data.cmd === 'init') {
       const config = JSON.parse(data.config);
+      // Muxer classes do not survive serialization; use this bundle's own.
+      if (__USE_MPEG_TS__) {
+        config.muxers = mpegTs.muxers;
+      }
       const observer = new EventEmitter();
       observer.on(Events.FRAG_DECRYPTED, (event, data) =>
         forwardMessage(event, data, instanceNo),

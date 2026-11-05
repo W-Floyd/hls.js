@@ -1,6 +1,7 @@
 import { expect, use } from 'chai';
 import sinonChai from 'sinon-chai';
-import { hlsDefaultConfig, mergeConfig } from '../../../src/config';
+import { mergeConfig } from '../../../src/config';
+import { hlsDefaultConfig } from '../../../src/config-default';
 import { Fragment } from '../../../src/loader/fragment';
 import KeyLoader from '../../../src/loader/key-loader';
 import { LevelKey } from '../../../src/loader/level-key';

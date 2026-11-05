@@ -1,7 +1,7 @@
 import { uuid } from '@svta/cml-utils';
 import { EventEmitter } from 'eventemitter3';
 import { buildAbsoluteURL } from 'url-toolkit';
-import { enableStreamingMode, hlsDefaultConfig, mergeConfig } from './config';
+import { enableStreamingMode, hlsCoreConfig, mergeConfig } from './config';
 import { State } from './controller/base-stream-controller';
 import { FragmentTracker } from './controller/fragment-tracker';
 import LevelController from './controller/level-controller';
@@ -14,7 +14,7 @@ import { MetadataSchema } from './types/demuxer';
 import { type HdcpLevel, isHdcpLevel, type Level } from './types/level';
 import { PlaylistLevelType } from './types/loader';
 import { enableLogs, type ILogger } from './utils/logger';
-import { getMediaDecodingInfoPromise } from './utils/mediacapabilities-helper';
+import { SUPPORTED_INFO_DEFAULT } from './utils/media-decoding-info';
 import { getMediaSource } from './utils/mediasource-helper';
 import { getAudioTracksByGroup } from './utils/rendition-helper';
 import { version } from './version';
@@ -70,7 +70,7 @@ import type { BufferInfo, BufferTimeRange } from './utils/buffer-helper';
 import type Cues from './utils/cues';
 import type EwmaBandWidthEstimator from './utils/ewma-bandwidth-estimator';
 import type FetchLoader from './utils/fetch-loader';
-import type { MediaDecodingInfo } from './utils/mediacapabilities-helper';
+import type { MediaDecodingInfo } from './utils/media-decoding-info';
 import type XhrLoader from './utils/xhr-loader';
 
 /**
@@ -169,11 +169,7 @@ export default class Hls implements HlsEventEmitter {
    * Get the default configuration applied to new instances.
    */
   static get DefaultConfig(): HlsConfig {
-    if (!Hls.defaultConfig) {
-      return hlsDefaultConfig;
-    }
-
-    return Hls.defaultConfig;
+    return Hls.defaultConfig || hlsCoreConfig;
   }
 
   /**
@@ -1338,14 +1334,20 @@ export default class Hls implements HlsEventEmitter {
   }
 
   /**
-   * returns mediaCapabilities.decodingInfo for a variant/rendition
+   * returns mediaCapabilities.decodingInfo for a variant/rendition, or a
+   * supported result when the mediaCapabilities feature is not configured
    */
   getMediaDecodingInfo(
     level: Level,
     audioTracks: MediaPlaylist[] = this.allAudioTracks,
   ): Promise<MediaDecodingInfo> {
+    const decodingInfo =
+      __USE_MEDIA_CAPABILITIES__ && this.config.mediaDecodingInfo;
+    if (!decodingInfo) {
+      return Promise.resolve(SUPPORTED_INFO_DEFAULT);
+    }
     const audioTracksByGroup = getAudioTracksByGroup(audioTracks);
-    return getMediaDecodingInfoPromise(
+    return decodingInfo.getMediaDecodingInfoPromise(
       level,
       audioTracksByGroup,
       navigator.mediaCapabilities,
@@ -1675,7 +1677,7 @@ export type {
 } from './types/media-playlist';
 export type { Track, TrackSet } from './types/track';
 export type { ChunkMetadata, TransmuxerResult } from './types/transmuxer';
-export type { MediaDecodingInfo } from './utils/mediacapabilities-helper';
+export type { MediaDecodingInfo } from './utils/media-decoding-info';
 export type {
   MediaKeyFunc,
   KeySystems,

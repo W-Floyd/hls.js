@@ -1,4 +1,8 @@
 import AAC from './aac-helper';
+import {
+  flushTextTrackMetadataCueSamples,
+  flushTextTrackUserdataCueSamples,
+} from './cue-samples';
 import MP4 from './mp4-generator';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
@@ -6,6 +10,8 @@ import { PlaylistLevelType } from '../types/loader';
 import { type ILogger, Logger } from '../utils/logger';
 import { types, writeUint32 } from '../utils/mp4-tools';
 import {
+  MPEG_TS_PTS_ROLLOVER,
+  normalizePts,
   timestampToString,
   toMsFromMpegTsClock,
 } from '../utils/timescale-conversion';
@@ -45,7 +51,6 @@ const MAX_SILENT_FRAME_DURATION = 10 * 1000; // 10 seconds
 const AAC_SAMPLES_PER_FRAME = 1024;
 const MPEG_AUDIO_SAMPLE_PER_FRAME = 1152;
 const AC3_SAMPLES_PER_FRAME = 1536;
-const MPEG_TS_PTS_ROLLOVER = 8589934592; // 2^33
 
 function createMp4Sample(
   isKeyframe: boolean,
@@ -1214,29 +1219,6 @@ export default class MP4Remuxer extends Logger implements Remuxer {
   }
 }
 
-export function normalizePts(value: number, reference: number | null): number {
-  let offset;
-  if (reference === null) {
-    return value;
-  }
-
-  if (reference < value) {
-    // - 2^33
-    offset = -MPEG_TS_PTS_ROLLOVER;
-  } else {
-    // + 2^33
-    offset = MPEG_TS_PTS_ROLLOVER;
-  }
-  /* PTS is 33bit (from 0 to 2^33 -1)
-    if diff between value and reference is bigger than half of the amplitude (2^32) then it means that
-    PTS looping occured. fill the gap */
-  while (Math.abs(value - reference) > 4294967296) {
-    value += offset;
-  }
-
-  return value;
-}
-
 function findKeyframeIndex(samples: Array<VideoSample>): number {
   for (let i = 0; i < samples.length; i++) {
     if (samples[i].key) {
@@ -1246,64 +1228,8 @@ function findKeyframeIndex(samples: Array<VideoSample>): number {
   return -1;
 }
 
-export function flushTextTrackMetadataCueSamples(
-  track: DemuxedMetadataTrack,
-  timeOffset: number,
-  initPTS: TimestampOffset,
-  initDTS: TimestampOffset,
-): RemuxedMetadata | undefined {
-  const length = track.samples.length;
-  if (!length) {
-    return;
-  }
-  const inputTimeScale = track.inputTimeScale;
-  for (let index = 0; index < length; index++) {
-    const sample = track.samples[index];
-    // setting id3 pts, dts to relative time
-    // using this._initPTS and this._initDTS to calculate relative time
-    sample.pts =
-      normalizePts(
-        sample.pts - (initPTS.baseTime * inputTimeScale) / initPTS.timescale,
-        timeOffset * inputTimeScale,
-      ) / inputTimeScale;
-    sample.dts =
-      normalizePts(
-        sample.dts - (initDTS.baseTime * inputTimeScale) / initDTS.timescale,
-        timeOffset * inputTimeScale,
-      ) / inputTimeScale;
-  }
-  const samples = track.samples;
-  track.samples = [];
-  return {
-    samples,
-  };
-}
-
-export function flushTextTrackUserdataCueSamples(
-  track: DemuxedUserdataTrack,
-  timeOffset: number,
-  initPTS: RationalTimestamp,
-): RemuxedUserdata | undefined {
-  const length = track.samples.length;
-  if (!length) {
-    return;
-  }
-
-  const inputTimeScale = track.inputTimeScale;
-  for (let index = 0; index < length; index++) {
-    const sample = track.samples[index];
-    // setting text pts, dts to relative time
-    // using this._initPTS and this._initDTS to calculate relative time
-    sample.pts =
-      normalizePts(
-        sample.pts - (initPTS.baseTime * inputTimeScale) / initPTS.timescale,
-        timeOffset * inputTimeScale,
-      ) / inputTimeScale;
-  }
-  track.samples.sort((a, b) => a.pts - b.pts);
-  const samples = track.samples;
-  track.samples = [];
-  return {
-    samples,
-  };
-}
+export {
+  flushTextTrackMetadataCueSamples,
+  flushTextTrackUserdataCueSamples,
+  normalizePts,
+};

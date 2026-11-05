@@ -1,7 +1,7 @@
 import { expect, use } from 'chai';
 import EventEmitter from 'eventemitter3';
 import sinonChai from 'sinon-chai';
-import { hlsDefaultConfig } from '../../../src/config';
+import { hlsDefaultConfig } from '../../../src/config-default';
 import { dummyTrack } from '../../../src/demux/dummy-demuxed-track';
 import MP4Remuxer from '../../../src/remux/mp4-remuxer';
 import { PlaylistLevelType } from '../../../src/types/loader';

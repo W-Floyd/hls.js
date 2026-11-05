@@ -53,7 +53,38 @@ function loadLimits() {
   });
 }
 
-function measure(file) {
+/**
+ * An ES module entry plus every chunk it statically imports: what a client of
+ * a code-split build downloads before running it. Dynamic `import()` chunks
+ * load on demand and are excluded.
+ */
+function staticClosure(entry) {
+  const files = new Set();
+  const visit = (file) => {
+    if (files.has(file)) return;
+    files.add(file);
+    if (!file.endsWith('.mjs')) return;
+    const source = fs.readFileSync(file, { encoding: 'utf-8' });
+    const imports = /(?:\bfrom|\bimport)\s*["'](\.\.?\/[^"']+)["']/g;
+    Array.from(source.matchAll(imports)).forEach(([, specifier]) =>
+      visit(path.resolve(path.dirname(file), specifier)),
+    );
+  };
+  visit(entry);
+  return [...files];
+}
+
+function measure(entry) {
+  return staticClosure(entry)
+    .map(measureFile)
+    .reduce((total, sizes) => ({
+      raw: total.raw + sizes.raw,
+      gzip: total.gzip + sizes.gzip,
+      brotli: total.brotli + sizes.brotli,
+    }));
+}
+
+function measureFile(file) {
   const raw = fs.readFileSync(file);
   return {
     raw: raw.length,

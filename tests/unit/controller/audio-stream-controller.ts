@@ -1,7 +1,7 @@
 import { expect, use } from 'chai';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
-import { hlsDefaultConfig } from '../../../src/config';
+import { hlsDefaultConfig } from '../../../src/config-default';
 import AudioStreamController from '../../../src/controller/audio-stream-controller';
 import BaseStreamController, {
   State,
