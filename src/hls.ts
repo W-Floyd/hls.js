@@ -1417,6 +1417,7 @@ export type {
   M3U8Parser,
 };
 export type {
+  AbrControllerConstructor,
   ABRControllerConfig,
   PlaylistControllerConfig,
   BufferControllerConfig,

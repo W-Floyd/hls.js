@@ -8,7 +8,8 @@
       "cap-level",
       "fps",
       "progressive",
-      "aes"
+      "aes",
+      "abr"
     ]
   },
   "minimal": {

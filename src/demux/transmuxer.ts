@@ -498,8 +498,7 @@ export default class Transmuxer {
       return muxers.length > 1
         ? new Error('Failed to find demuxer by probing fragment data')
         : missingFeatureError(
-            'mpeg-ts',
-            'Non-fMP4 media (MPEG-TS, packed audio)',
+            'Non-fMP4 media (MPEG-TS, packed audio) needs the mpeg-ts feature',
           );
     }
     // so let's check that current remuxer and demuxer are still valid

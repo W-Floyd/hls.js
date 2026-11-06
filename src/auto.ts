@@ -68,6 +68,7 @@ function addKeyFeature(line: string, found: Set<string>) {
 }
 
 function scanMultivariant(text: string, found: Set<string>) {
+  if (tagLines(text, 'EXT-X-STREAM-INF').length > 1) found.add('abr');
   tagLines(text, 'EXT-X-MEDIA').forEach((line) => {
     const { TYPE, URI } = attributes(line);
     if (TYPE === 'SUBTITLES' || TYPE === 'CLOSED-CAPTIONS') {

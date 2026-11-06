@@ -20,6 +20,8 @@ declare const __USE_METADATA__: boolean;
 declare const __USE_LATENCY__: boolean;
 declare const __USE_PROGRESSIVE__: boolean;
 declare const __USE_AES__: boolean;
+declare const __USE_ABR__: boolean;
+declare const __USE_LIVE__: boolean;
 declare const __USE_LOGS__: boolean;
 declare const __USE_RECOVERY__: boolean;
 

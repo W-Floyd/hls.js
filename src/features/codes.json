@@ -14,5 +14,6 @@
   "media-capabilities": "mcap",
   "variable-substitution": "vars",
   "progressive": "prog",
-  "aes": "aes"
+  "aes": "aes",
+  "abr": "abr"
 }

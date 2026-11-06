@@ -15,7 +15,10 @@ import {
   areCodecsMediaSourceSupported,
   sampleEntryCodesISO,
 } from '../utils/codecs';
-import { isMissingFeatureError } from '../utils/feature-hooks';
+import {
+  isMissingFeatureError,
+  missingFeatureError,
+} from '../utils/feature-hooks';
 import { computeReloadInterval } from '../utils/level-helper';
 import type { LevelDetails } from './level-details';
 import type { LoaderConfig, RetryConfig } from '../config';
@@ -733,6 +736,11 @@ class PlaylistLoader implements NetworkComponentAPI {
         `EXT-X-I-FRAME-STREAM-INF media playlist MUST contain an EXT-X-I-FRAMES-ONLY tag`,
       );
       levelDetails.iframesOnly = true;
+    }
+    if (!__USE_LIVE__ && levelDetails.live) {
+      levelDetails.playlistParsingError = missingFeatureError(
+        'Live playlists need a build with USE_LIVE on (this one is VOD only)',
+      );
     }
     const error = levelDetails.playlistParsingError;
     if (error) {

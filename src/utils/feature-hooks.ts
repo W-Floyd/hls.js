@@ -36,12 +36,12 @@ export function createDecrypter(config: HlsConfig): Decrypter | null {
 export const hasDecrypter = () => !!(__USE_AES__ && featureHooks.decrypter);
 
 /**
- * For a stream this build can't play without `feature`; raised as fatal.
- * Optional features the stream could use are only warned about
- * (see missing-features.ts).
+ * For a stream this build can't play without a feature or build option;
+ * raised as fatal. Optional features the stream could use are only warned
+ * about (see missing-features.ts).
  */
-export function missingFeatureError(feature: string, need: string): Error {
-  const error = new Error(`${need} needs the ${feature} feature`);
+export function missingFeatureError(message: string): Error {
+  const error = new Error(message);
   error.name = 'MissingFeatureError';
   return error;
 }
@@ -51,8 +51,7 @@ export const isMissingFeatureError = (error: Error | null | undefined) =>
 
 export const noDecrypterError = () =>
   missingFeatureError(
-    'aes',
-    'Clear-key (AES-128, AES-256, SAMPLE-AES) decryption',
+    'Clear-key (AES-128, AES-256, SAMPLE-AES) decryption needs the aes feature',
   );
 
 // {$name} references only resolve with the variable-substitution feature.
@@ -60,7 +59,6 @@ export const unresolvedVariablesError = (text: string) =>
   !(__USE_VARIABLE_SUBSTITUTION__ && featureHooks.variableSubstitution) &&
   text.indexOf('{$') !== -1
     ? missingFeatureError(
-        'variable-substitution',
-        'Playlist variables ({$name})',
+        'Playlist variables ({$name}) need the variable-substitution feature',
       )
     : null;

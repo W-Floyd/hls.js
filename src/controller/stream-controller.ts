@@ -653,7 +653,7 @@ export default class StreamController
     }
 
     let sliding = 0;
-    if (newDetails.live || curLevel.details?.live) {
+    if (__USE_LIVE__ && (newDetails.live || curLevel.details?.live)) {
       this.checkLiveUpdate(newDetails);
       if (newDetails.deltaUpdateFailed) {
         return;
@@ -703,6 +703,9 @@ export default class StreamController
   }
 
   private synchronizeToLiveEdge(levelDetails: LevelDetails) {
+    if (!__USE_LIVE__) {
+      return;
+    }
     const { config, media } = this;
     if (!media) {
       return;

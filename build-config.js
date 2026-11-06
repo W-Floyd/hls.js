@@ -65,6 +65,7 @@ const flags = {
   m2tsAdvancedCodecs: readFeatureFlag('M2TS_ADVANCED_CODECS'),
   logs: readFeatureFlag('LOGS'),
   recovery: readFeatureFlag('RECOVERY'),
+  live: readFeatureFlag('LIVE'),
 };
 Object.entries(featureNames).forEach(([key, name]) => {
   const envName = name.toUpperCase().replace(/-/g, '_');
@@ -96,6 +97,9 @@ function getFeatureSupport(type) {
     // USE_RECOVERY=0 drops retries, level/redundant failover and recovery
     // heuristics: errors go fatal so the page can fall back (e.g. to MP4).
     recovery: flags.recovery ?? true,
+    // USE_LIVE=0: VOD only. Drops playlist reloading/merging and LL-HLS;
+    // live playlists fail fatally.
+    live: flags.live ?? true,
   };
 }
 
@@ -133,6 +137,8 @@ const buildConstants = (
     __USE_LATENCY__: JSON.stringify(features.latency),
     __USE_PROGRESSIVE__: JSON.stringify(features.progressive),
     __USE_AES__: JSON.stringify(features.aes),
+    __USE_ABR__: JSON.stringify(features.abr),
+    __USE_LIVE__: JSON.stringify(features.live),
     __USE_LOGS__: JSON.stringify(features.logs),
     __USE_RECOVERY__: JSON.stringify(features.recovery),
 

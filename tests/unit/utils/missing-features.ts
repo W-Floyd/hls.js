@@ -79,7 +79,12 @@ const optional: {
     events: [
       [
         Events.MANIFEST_LOADED,
-        { audioTracks: [], iframeVariants: [], contentSteering: null },
+        {
+          audioTracks: [],
+          iframeVariants: [],
+          contentSteering: null,
+          levels: [{}],
+        },
       ],
     ],
     warnings: [],
@@ -111,14 +116,15 @@ const optional: {
           audioTracks: [{ url: 'a.m3u8' }],
           contentSteering: { uri: 's.json' },
           iframeVariants: [{}],
+          levels: [{}, {}],
         },
       ],
       [
         Events.MANIFEST_LOADED,
-        { subtitles: [{}], audioTracks: [], iframeVariants: [] },
+        { subtitles: [{}], audioTracks: [], iframeVariants: [], levels: [] },
       ],
     ],
-    warnings: ['subtitles', 'alt-audio', 'content-steering', 'iframes'],
+    warnings: ['abr', 'subtitles', 'alt-audio', 'content-steering', 'iframes'],
   },
   {
     name: 'live, date ranges and interstitials',

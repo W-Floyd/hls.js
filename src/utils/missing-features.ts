@@ -41,6 +41,11 @@ export function warnMissingFeatures(hls: Hls) {
   );
   hls.on(Events.MANIFEST_LOADED, (_, data: ManifestLoadedData) => {
     check(
+      data.levels.length > 1 && isNaN(hls.bandwidthEstimate),
+      'abr',
+      'Adaptive bitrate switching',
+    );
+    check(
       (data.subtitles?.length || data.captions?.length) &&
         !config.timelineController,
       'subtitles',

@@ -510,6 +510,9 @@ export default class M3U8Parser {
             currentSN = level.startSN + level.skippedSegments;
             break;
           case 'SKIP': {
+            if (!__USE_LIVE__) {
+              break;
+            }
             if (level.skippedSegments) {
               assignMultipleMediaPlaylistTagOccuranceError(level, tag, result);
             }
@@ -689,6 +692,9 @@ export default class M3U8Parser {
             break;
           }
           case 'SERVER-CONTROL': {
+            if (!__USE_LIVE__) {
+              break;
+            }
             if (serverControlAttrs) {
               assignMultipleMediaPlaylistTagOccuranceError(level, tag, result);
             }
@@ -709,6 +715,9 @@ export default class M3U8Parser {
             break;
           }
           case 'PART-INF': {
+            if (!__USE_LIVE__) {
+              break;
+            }
             if (level.partTarget) {
               assignMultipleMediaPlaylistTagOccuranceError(level, tag, result);
             }
@@ -717,6 +726,9 @@ export default class M3U8Parser {
             break;
           }
           case 'PART': {
+            if (!__USE_LIVE__) {
+              break;
+            }
             let partList = level.partList;
             if (!partList) {
               partList = level.partList = [];
@@ -737,11 +749,17 @@ export default class M3U8Parser {
             break;
           }
           case 'PRELOAD-HINT': {
+            if (!__USE_LIVE__) {
+              break;
+            }
             const preloadHintAttrs = new AttrList(value1, level);
             level.preloadHint = preloadHintAttrs;
             break;
           }
           case 'RENDITION-REPORT': {
+            if (!__USE_LIVE__) {
+              break;
+            }
             const renditionReportAttrs = new AttrList(value1, level);
             level.renditionReports = level.renditionReports || [];
             level.renditionReports.push(renditionReportAttrs);

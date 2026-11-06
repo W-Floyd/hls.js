@@ -1,4 +1,5 @@
 import { hlsCoreConfig } from './config';
+import { abr } from './features/abr';
 import { aes } from './features/aes';
 import { altAudio } from './features/alt-audio';
 import { capLevel } from './features/cap-level';
@@ -39,4 +40,5 @@ export const hlsDefaultConfig: HlsConfig = {
   ...(__USE_INTERSTITIALS__ ? interstitials : undefined),
   ...(__USE_PROGRESSIVE__ ? progressive : undefined),
   ...(__USE_AES__ ? aes : undefined),
+  ...(__USE_ABR__ ? abr : undefined),
 };

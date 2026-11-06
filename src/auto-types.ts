@@ -21,7 +21,8 @@ export type AutoFeature =
   | 'media-capabilities'
   | 'variable-substitution'
   | 'progressive'
-  | 'aes';
+  | 'aes'
+  | 'abr';
 
 /** Options for {@link attach}, {@link loadHls} and {@link detectFeatures}. */
 export type AutoOptions = {

@@ -571,7 +571,7 @@ class AudioStreamController
 
     const trackLevel = levels[trackId];
     let sliding = 0;
-    if (newDetails.live || trackLevel.details?.live) {
+    if (__USE_LIVE__ && (newDetails.live || trackLevel.details?.live)) {
       this.checkLiveUpdate(newDetails);
       if (newDetails.deltaUpdateFailed) {
         return;

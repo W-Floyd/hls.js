@@ -368,8 +368,10 @@ export default class CMCDController implements ComponentAPI {
     }
 
     // Update persistent data
+    const bandwidth = this.hls.bandwidthEstimate;
     this.reporter.update({
-      mtp: [this.hls.bandwidthEstimate / 1000],
+      // NaN without the abr feature.
+      mtp: Number.isFinite(bandwidth) ? [bandwidth / 1000] : undefined,
       pr: this.media?.playbackRate,
       st: this.getStreamType(),
     });

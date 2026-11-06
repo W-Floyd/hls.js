@@ -67,6 +67,9 @@ export default class BasePlaylistController
     previous: LevelDetails | undefined,
     current: LevelDetails | undefined,
   ): HlsUrlParameters | undefined {
+    if (!__USE_LIVE__) {
+      return undefined;
+    }
     const renditionReports = previous?.renditionReports;
     if (renditionReports) {
       let foundIndex = -1;
@@ -175,7 +178,7 @@ export default class BasePlaylistController
     }
 
     // if current playlist is a live playlist, arm a timer to reload it
-    if (details.live || previousDetails?.live) {
+    if (__USE_LIVE__ && (details.live || previousDetails?.live)) {
       const levelOrTrack = 'levelInfo' in data ? data.levelInfo : data.track;
       details.reloaded(previousDetails);
       const parent = fragments[fragments.length - 1]?.type;
@@ -400,6 +403,9 @@ export default class BasePlaylistController
     msn?: number,
     part?: number,
   ): HlsUrlParameters {
+    if (!__USE_LIVE__) {
+      return new HlsUrlParameters();
+    }
     let skip = getSkipValue(details);
     if (previousDeliveryDirectives?.skip && details.deltaUpdateFailed) {
       msn = previousDeliveryDirectives.msn;

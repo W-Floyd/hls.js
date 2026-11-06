@@ -671,6 +671,9 @@ export default class BaseStreamController
   }
 
   protected checkLiveUpdate(details: LevelDetails) {
+    if (!__USE_LIVE__) {
+      return;
+    }
     if (details.updated && !details.live) {
       // Live stream ended, update fragment tracker
       const fragmentTracker = this.fragmentTracker;
@@ -705,6 +708,9 @@ export default class BaseStreamController
   }
 
   protected waitForLive(levelInfo: Level) {
+    if (!__USE_LIVE__) {
+      return false;
+    }
     const details = levelInfo.details;
     return (
       details?.live &&
@@ -1235,6 +1241,9 @@ export default class BaseStreamController
     level: Level,
     progressCallback: FragmentLoadProgressCallback,
   ): Promise<PartsLoadedData | null> {
+    if (!__USE_LIVE__) {
+      return Promise.resolve(null);
+    }
     return new Promise(
       (resolve: ResolveFragLoaded, reject: RejectFragLoaded) => {
         const partsLoaded: FragLoadedData[] = [];
@@ -1339,6 +1348,9 @@ export default class BaseStreamController
     details: LevelDetails | undefined,
     bufferEnd: number,
   ): boolean {
+    if (!__USE_LIVE__) {
+      return false;
+    }
     if (this.config.lowLatencyMode) {
       if (!details) {
         return this.loadingParts;
@@ -1778,6 +1790,9 @@ export default class BaseStreamController
     frag: Fragment,
     targetBufferTime: number,
   ): number {
+    if (!__USE_LIVE__) {
+      return -1;
+    }
     let nextPart = -1;
     let contiguous = false;
     let independentAttrOmitted = true;
@@ -1811,6 +1826,9 @@ export default class BaseStreamController
     partList: Part[],
     targetBufferTime: number,
   ): boolean {
+    if (!__USE_LIVE__) {
+      return false;
+    }
     let part: Part;
     for (let i = partList.length; i--; ) {
       part = partList[i];
@@ -1832,6 +1850,9 @@ export default class BaseStreamController
   protected getInitialLiveFragment(
     levelDetails: LevelDetails,
   ): MediaFragment | null {
+    if (!__USE_LIVE__) {
+      return null;
+    }
     const fragments = levelDetails.fragments;
     const fragPrevious = this.fragPrevious;
     let frag: MediaFragment | null = null;
@@ -2023,6 +2044,9 @@ export default class BaseStreamController
   }
 
   protected waitForCdnTuneIn(details: LevelDetails) {
+    if (!__USE_LIVE__) {
+      return false;
+    }
     // Wait for Low-Latency CDN Tune-in to get an updated playlist
     const advancePartLimit = 3;
     return (
@@ -2650,8 +2674,11 @@ export default class BaseStreamController
           ? estimatedAudioBitrate(nextLevel.audioCodec, 128000)
           : nextLevel.maxBitrate;
       // add a safety delay of 1s
-      const ttfbSec = 1 + hls.ttfbEstimate / 1000;
-      const bandwidth = hls.bandwidthEstimate * config.abrBandWidthUpFactor;
+      // Estimates are NaN without the abr feature.
+      const ttfbSec = 1 + (hls.ttfbEstimate || 0) / 1000;
+      const bandwidth =
+        (hls.bandwidthEstimate || config.abrEwmaDefaultEstimate) *
+        config.abrBandWidthUpFactor;
       const fragDuration =
         (levelDetails &&
           (this.loadingParts

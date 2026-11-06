@@ -126,6 +126,16 @@ const rows: Row[] = [
     features: ['subtitles', 'eme-drm', 'cmcd', 'fps', 'progressive'],
   },
   {
+    name: 'several variants need abr',
+    playlists: {
+      'index.m3u8': multivariant(
+        '#EXT-X-STREAM-INF:BANDWIDTH=500000\nvideo/low.m3u8',
+      ),
+      'video/low.m3u8': fmp4Vod,
+    },
+    features: ['abr'],
+  },
+  {
     name: 'an unreadable media playlist assumes MPEG-TS',
     playlists: { 'index.m3u8': multivariant('') },
     features: ['mpeg-ts'],

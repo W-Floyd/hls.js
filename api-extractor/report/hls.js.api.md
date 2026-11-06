@@ -82,6 +82,11 @@ export type ABRControllerConfig = {
     maxLoadingDelay: number;
 };
 
+// Warning: (ae-missing-release-tag) "AbrControllerConstructor" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public
+export type AbrControllerConstructor = new (hls: Hls) => AbrComponentAPI;
+
 // Warning: (ae-missing-release-tag) "AssetListJSON" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
@@ -2542,7 +2547,7 @@ export type HlsConfig = {
     assetPlayerId?: string;
     useMediaCapabilities: boolean;
     streamController: typeof StreamController;
-    abrController: typeof AbrController;
+    abrController: AbrControllerConstructor;
     bufferController?: typeof BufferController;
     capLevelController?: typeof CapLevelController;
     errorController: typeof ErrorController;
@@ -5465,14 +5470,14 @@ export class XhrLoader extends BaseLoader {
 
 // Warnings were encountered during analysis:
 //
-// src/config.ts:95:3 - (ae-forgotten-export) The symbol "CmcdCustomKey" needs to be exported by the entry point hls.d.ts
-// src/config.ts:95:3 - (ae-forgotten-export) The symbol "CmcdCustomValue" needs to be exported by the entry point hls.d.ts
-// src/config.ts:107:3 - (ae-forgotten-export) The symbol "CmcdKey" needs to be exported by the entry point hls.d.ts
-// src/config.ts:108:3 - (ae-forgotten-export) The symbol "CmcdVersion" needs to be exported by the entry point hls.d.ts
-// src/config.ts:110:3 - (ae-forgotten-export) The symbol "CmcdEventReportConfig" needs to be exported by the entry point hls.d.ts
-// src/config.ts:394:5 - (ae-forgotten-export) The symbol "requiresMediaCapabilitiesDecodingInfo" needs to be exported by the entry point hls.d.ts
-// src/config.ts:395:5 - (ae-forgotten-export) The symbol "getMediaDecodingInfoPromise" needs to be exported by the entry point hls.d.ts
-// src/config.ts:398:3 - (ae-forgotten-export) The symbol "MuxConfig" needs to be exported by the entry point hls.d.ts
+// src/config.ts:96:3 - (ae-forgotten-export) The symbol "CmcdCustomKey" needs to be exported by the entry point hls.d.ts
+// src/config.ts:96:3 - (ae-forgotten-export) The symbol "CmcdCustomValue" needs to be exported by the entry point hls.d.ts
+// src/config.ts:108:3 - (ae-forgotten-export) The symbol "CmcdKey" needs to be exported by the entry point hls.d.ts
+// src/config.ts:109:3 - (ae-forgotten-export) The symbol "CmcdVersion" needs to be exported by the entry point hls.d.ts
+// src/config.ts:111:3 - (ae-forgotten-export) The symbol "CmcdEventReportConfig" needs to be exported by the entry point hls.d.ts
+// src/config.ts:398:5 - (ae-forgotten-export) The symbol "requiresMediaCapabilitiesDecodingInfo" needs to be exported by the entry point hls.d.ts
+// src/config.ts:399:5 - (ae-forgotten-export) The symbol "getMediaDecodingInfoPromise" needs to be exported by the entry point hls.d.ts
+// src/config.ts:402:3 - (ae-forgotten-export) The symbol "MuxConfig" needs to be exported by the entry point hls.d.ts
 
 // (No @packageDocumentation comment for this package)
 

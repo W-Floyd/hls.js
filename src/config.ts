@@ -1,6 +1,6 @@
-import AbrController from './controller/abr-controller';
 import BufferController from './controller/buffer-controller';
 import ErrorController from './controller/error-controller';
+import FixedLevelController from './controller/fixed-level-controller';
 import GapController from './controller/gap-controller';
 import StreamController from './controller/stream-controller';
 import { clamp } from './utils/number';
@@ -28,6 +28,7 @@ import type { TimelineController } from './controller/timeline-controller';
 import type { MuxConfig } from './demux/transmuxer';
 import type Hls from './hls';
 import type { LevelKey } from './loader/level-key';
+import type { AbrComponentAPI } from './types/component-api';
 import type {
   FragmentLoaderContext,
   Loader,
@@ -340,6 +341,9 @@ export type TSDemuxerConfig = {
   handleMpegTsVideoIntegrityErrors: 'process' | 'skip';
 };
 
+/** AbrController (abr feature) or FixedLevelController (core default). */
+export type AbrControllerConstructor = new (hls: Hls) => AbrComponentAPI;
+
 export type HlsConfig = {
   debug: boolean | ILogger;
   enableWorker: boolean;
@@ -410,7 +414,7 @@ export type HlsConfig = {
   useMediaCapabilities: boolean;
 
   streamController: typeof StreamController;
-  abrController: typeof AbrController;
+  abrController: AbrControllerConstructor;
   bufferController?: typeof BufferController;
   capLevelController?: typeof CapLevelController;
   errorController: typeof ErrorController;
@@ -674,7 +678,7 @@ export const hlsCoreConfig: HlsConfig = {
   fragLoadingMaxRetryTimeout: 64000,
 
   streamController: StreamController,
-  abrController: AbrController,
+  abrController: FixedLevelController,
   bufferController: BufferController,
   errorController: ErrorController,
   gapController: GapController,
