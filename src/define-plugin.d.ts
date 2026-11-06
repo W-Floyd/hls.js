@@ -22,6 +22,7 @@ declare const __USE_PROGRESSIVE__: boolean;
 declare const __USE_AES__: boolean;
 declare const __USE_ABR__: boolean;
 declare const __USE_LIVE__: boolean;
+declare const __USE_ENCRYPTION__: boolean;
 declare const __USE_LOGS__: boolean;
 declare const __USE_RECOVERY__: boolean;
 

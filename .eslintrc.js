@@ -55,6 +55,7 @@ module.exports = {
     __USE_AES__: true,
     __USE_ABR__: true,
     __USE_LIVE__: true,
+    __USE_ENCRYPTION__: true,
     __USE_LOGS__: true,
     __USE_RECOVERY__: true,
   },

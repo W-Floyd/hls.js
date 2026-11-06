@@ -280,6 +280,9 @@ export class Fragment extends BaseSegment {
   }
 
   get decryptdata(): LevelKey | null {
+    if (!__USE_ENCRYPTION__) {
+      return null;
+    }
     const { levelkeys } = this;
 
     if (!levelkeys || levelkeys.NONE) {

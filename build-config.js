@@ -66,6 +66,7 @@ const flags = {
   logs: readFeatureFlag('LOGS'),
   recovery: readFeatureFlag('RECOVERY'),
   live: readFeatureFlag('LIVE'),
+  encryption: readFeatureFlag('ENCRYPTION'),
 };
 Object.entries(featureNames).forEach(([key, name]) => {
   const envName = name.toUpperCase().replace(/-/g, '_');
@@ -100,6 +101,9 @@ function getFeatureSupport(type) {
     // USE_LIVE=0: VOD only. Drops playlist reloading/merging and LL-HLS;
     // live playlists fail fatally.
     live: flags.live ?? true,
+    // USE_ENCRYPTION=0: no EXT-X-KEY support (key loading, LevelKey);
+    // encrypted playlists fail fatally. aes and eme-drm need it on.
+    encryption: flags.encryption ?? true,
   };
 }
 
@@ -139,6 +143,7 @@ const buildConstants = (
     __USE_AES__: JSON.stringify(features.aes),
     __USE_ABR__: JSON.stringify(features.abr),
     __USE_LIVE__: JSON.stringify(features.live),
+    __USE_ENCRYPTION__: JSON.stringify(features.encryption),
     __USE_LOGS__: JSON.stringify(features.logs),
     __USE_RECOVERY__: JSON.stringify(features.recovery),
 

@@ -5,7 +5,11 @@ import { LevelDetails } from './level-details';
 import { LevelKey } from './level-key';
 import { AttrList } from '../utils/attr-list';
 import { isCodecType } from '../utils/codecs';
-import { featureHooks, unresolvedVariablesError } from '../utils/feature-hooks';
+import {
+  featureHooks,
+  missingFeatureError,
+  unresolvedVariablesError,
+} from '../utils/feature-hooks';
 import { logger } from '../utils/logger';
 import type { MediaFragment } from './fragment';
 import type { ContentSteeringOptions } from '../types/events';
@@ -181,6 +185,9 @@ export default class M3U8Parser {
           }
           case 'SESSION-KEY': {
             // #EXT-X-SESSION-KEY
+            if (!__USE_ENCRYPTION__) {
+              break;
+            }
             const sessionKey = parseKey(attributes, baseurl, parsed);
             if (sessionKey.encrypted && sessionKey.isSupported()) {
               if (parsed.sessionKeys === null) {
@@ -631,6 +638,14 @@ export default class M3U8Parser {
             );
             break;
           case 'KEY': {
+            if (!__USE_ENCRYPTION__) {
+              if (!/METHOD=NONE(,|$)/.test(value1)) {
+                level.playlistParsingError = missingFeatureError(
+                  'Encrypted playlists need a build with USE_ENCRYPTION on',
+                );
+              }
+              break;
+            }
             const levelKey = parseKey(value1, baseurl, level);
             if (levelKey.isSupported()) {
               if (levelKey.method === 'NONE') {

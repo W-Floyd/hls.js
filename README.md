@@ -216,9 +216,10 @@ Build-time switches trade debuggability, resilience or stream support for size. 
 - `USE_LOGS=0` removes log/debug/info/warn calls (errors still log), so `debug: true` prints almost nothing.
 - `USE_RECOVERY=0` removes fragment and playlist retries, level and redundant-stream failover, ABR's abort of slow in-flight fragments, the append timeout, and Chrome's video-hole nudge. Load, parse and worker errors become fatal at once, for players that fall back to another source on a fatal error. Raise `fragLoadPolicy` timeouts for slow origins, since a timeout is no longer retried.
 - `USE_LIVE=0` builds a VOD-only player: no playlist reloading or merging, no low-latency HLS (parts, preload hints, blocking reload, delta updates). Live playlists fail with a fatal error.
+- `USE_ENCRYPTION=0` drops `EXT-X-KEY` support (key loading and key parsing). Encrypted playlists fail with a fatal error; the `aes` and `eme-drm` features need it on.
 
 ```
-USE_LOGS=0 USE_RECOVERY=0 USE_LIVE=0 npm run build -- --configType core
+USE_LOGS=0 USE_RECOVERY=0 USE_LIVE=0 USE_ENCRYPTION=0 npm run build -- --configType core
 ```
 
 Adaptive bitrate is the `abr` feature (in `full` and `light`). Without it, auto level selection starts on the first listed level and stays there unless the app, an error or a level cap changes it, and `hls.bandwidthEstimate` is `NaN`.

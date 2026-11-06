@@ -1,7 +1,11 @@
 import { LoadError } from './fragment-loader';
 import { LevelKey } from './level-key';
 import { ErrorDetails, ErrorTypes } from '../errors';
-import { featureHooks, noDecrypterError } from '../utils/feature-hooks';
+import {
+  featureHooks,
+  missingFeatureError,
+  noDecrypterError,
+} from '../utils/feature-hooks';
 import { arrayToHex } from '../utils/hex';
 import { Logger } from '../utils/logger';
 import { parseKeyIdsFromTenc } from '../utils/mp4-tools';
@@ -62,6 +66,9 @@ export default class KeyLoader extends Logger implements ComponentAPI {
     encryptedFragments: Fragment[],
     startFragRequested: boolean,
   ): Promise<void> | null {
+    if (!__USE_ENCRYPTION__) {
+      return null;
+    }
     if (this.emeController) {
       return this.emeController.loadClear(
         loadingFrag,
@@ -76,6 +83,9 @@ export default class KeyLoader extends Logger implements ComponentAPI {
     frag: Fragment,
     initDataPromise?: Promise<void>,
   ): Promise<KeyLoadedData> {
+    if (!__USE_ENCRYPTION__) {
+      return Promise.reject(noEncryptionError());
+    }
     if (
       !frag.decryptdata &&
       frag.encrypted &&
@@ -98,6 +108,9 @@ export default class KeyLoader extends Logger implements ComponentAPI {
     initDataPromise: Promise<void> | undefined,
     keySystemFormat?: KeySystemFormats,
   ): Promise<KeyLoadedData> {
+    if (!__USE_ENCRYPTION__) {
+      return Promise.reject(noEncryptionError());
+    }
     if (__USE_EME_DRM__ && keySystemFormat) {
       frag.setKeyFormat(keySystemFormat);
     }
@@ -144,6 +157,9 @@ export default class KeyLoader extends Logger implements ComponentAPI {
   }
 
   private loadKeyEME(frag: EncryptedFragment): Promise<KeyLoadedData> {
+    if (!__USE_ENCRYPTION__) {
+      return Promise.reject(noEncryptionError());
+    }
     if (this.emeController && this.config.emeEnabled) {
       if (!frag.decryptdata.keyId && frag.initSegment?.data) {
         const keyIds = parseKeyIdsFromTenc(
@@ -186,6 +202,9 @@ export default class KeyLoader extends Logger implements ComponentAPI {
   }
 
   private loadKeyHTTP(frag: EncryptedFragment): Promise<KeyLoadedData> {
+    if (!__USE_ENCRYPTION__) {
+      return Promise.reject(noEncryptionError());
+    }
     const loadKeyHTTP = __USE_AES__ && featureHooks.loadKeyHTTP;
     return loadKeyHTTP
       ? loadKeyHTTP(frag, this.keyLoaderInfo, this.config, this)
@@ -198,6 +217,10 @@ export default class KeyLoader extends Logger implements ComponentAPI {
         );
   }
 }
+
+// Unreachable in USE_ENCRYPTION=0 builds: the parser rejects EXT-X-KEY first.
+const noEncryptionError = () =>
+  missingFeatureError('Encryption needs a build with USE_ENCRYPTION on');
 
 export function createKeyLoadError(
   frag: Fragment,
