@@ -58,6 +58,7 @@ import './unit/utils/discontinuities';
 import './unit/utils/exp-golomb';
 import './unit/utils/imsc1-ttml-parser';
 import './unit/utils/mediacapabilities-helper';
+import './unit/utils/missing-features';
 import './unit/utils/mp4-tools';
 import './unit/utils/output-filter';
 import './unit/utils/rendition-helper';

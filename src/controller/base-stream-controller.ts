@@ -7,7 +7,6 @@ import {
   getNextFrag,
 } from './fragment-finders';
 import { FragmentState } from './fragment-tracker';
-import Decrypter from '../crypt/decrypter';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
 import {
@@ -39,6 +38,11 @@ import {
   removeEventListener,
 } from '../utils/event-listener-helper';
 import {
+  createDecrypter,
+  hasDecrypter,
+  noDecrypterError,
+} from '../utils/feature-hooks';
+import {
   alignSliding,
   findPart,
   getFragmentWithSN,
@@ -50,6 +54,7 @@ import { appendUint8Array } from '../utils/mp4-tools';
 import { timeRangesToString } from '../utils/time-ranges';
 import type { HlsConfig } from '../config';
 import type { FragmentTracker } from './fragment-tracker';
+import type Decrypter from '../crypt/decrypter';
 import type TransmuxerInterface from '../demux/transmuxer-interface';
 import type Hls from '../hls';
 import type { FragmentLoadProgressCallback } from '../loader/fragment-loader';
@@ -124,7 +129,7 @@ export default class BaseStreamController
   protected keyLoader: KeyLoader;
   protected levelLastLoaded: Level | null = null;
   protected startFragRequested: boolean = false;
-  protected decrypter: Decrypter;
+  private aesDecrypter: Decrypter | null = null;
   protected initPTS: TimestampOffset[] = [];
   protected buffering: boolean = true;
   protected loadingParts: boolean = false;
@@ -145,7 +150,6 @@ export default class BaseStreamController
     this.keyLoader = keyLoader;
     this.fragmentTracker = fragmentTracker;
     this.config = hls.config;
-    this.decrypter = new Decrypter(hls.config);
   }
 
   protected registerListeners() {
@@ -536,12 +540,12 @@ export default class BaseStreamController
     if (this.keyLoader) {
       this.keyLoader.destroy();
     }
-    if (this.decrypter) {
-      this.decrypter.destroy();
+    if (this.aesDecrypter) {
+      this.aesDecrypter.destroy();
     }
 
     //@ts-ignore
-    this.hls = this.decrypter = this.keyLoader = null;
+    this.hls = this.aesDecrypter = this.keyLoader = null;
     //@ts-ignore
     this.fragmentLoader = this.initFragmentLoader = this.fragmentTracker = null;
 
@@ -770,14 +774,18 @@ export default class BaseStreamController
             null,
             this.iframesOnly,
           );
-          return this.decrypter
-            .decrypt(
-              new Uint8Array(payload),
-              decryptData.key.buffer,
-              decryptData.iv.buffer,
-              getAesModeFromFullSegmentMethod(decryptData.method),
-              decryptRange,
-            )
+          const decrypter = this.getDecrypter();
+          return (
+            decrypter
+              ? decrypter.decrypt(
+                  new Uint8Array(payload),
+                  decryptData.key.buffer,
+                  decryptData.iv.buffer,
+                  getAesModeFromFullSegmentMethod(decryptData.method),
+                  decryptRange,
+                )
+              : Promise.reject(noDecrypterError())
+          )
             .catch((err) => {
               hls.trigger(Events.ERROR, {
                 type: ErrorTypes.MEDIA_ERROR,
@@ -1003,6 +1011,23 @@ export default class BaseStreamController
     progressCallback?: FragmentLoadProgressCallback,
   ): Promise<PartsLoadedData | FragLoadedData | null> {
     this.fragCurrent = frag;
+    if (
+      frag.encrypted &&
+      frag.decryptdata?.keyFormat === 'identity' &&
+      !hasDecrypter()
+    ) {
+      // Fail before loading: clear-key keys can't be loaded or used without aes.
+      const error = noDecrypterError();
+      this.hls.trigger(Events.ERROR, {
+        type: ErrorTypes.MEDIA_ERROR,
+        details: ErrorDetails.FRAG_DECRYPT_ERROR,
+        fatal: true,
+        error,
+        reason: error.message,
+        frag,
+      });
+      return Promise.resolve(null);
+    }
     const details = level.details;
     if (!this.levels || !details) {
       throw new Error(
@@ -1731,6 +1756,21 @@ export default class BaseStreamController
       this.hls.interstitialsManager,
       this.playhead,
     );
+  }
+
+  // Created on first use: only encrypted streams need it, and only with the
+  // aes feature.
+  /** @internal */
+  protected getDecrypter(): Decrypter | null {
+    return (this.aesDecrypter ||= createDecrypter(this.hls.config));
+  }
+
+  protected get decrypter(): Decrypter {
+    const decrypter = this.getDecrypter();
+    if (!decrypter) {
+      throw noDecrypterError();
+    }
+    return decrypter;
   }
 
   getNextPart(

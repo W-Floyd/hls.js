@@ -16,6 +16,7 @@ import {
   getAesModeFromFullSegmentMethod,
   isFullSegmentEncryption,
 } from '../utils/encryption-methods-util';
+import { noDecrypterError } from '../utils/feature-hooks';
 import { subtitleOptionsIdentical } from '../utils/media-option-attributes';
 import type { FragmentTracker } from './fragment-tracker';
 import type Hls from '../hls';
@@ -381,13 +382,16 @@ export class SubtitleStreamController
   ): void {
     const decryptData = frag.decryptdata!;
     const tstart = performance.now();
-    this.decrypter
-      .decrypt(
-        new Uint8Array(payload),
-        decryptData.key!.buffer,
-        decryptData.iv!.buffer,
-        getAesModeFromFullSegmentMethod(decryptData.method),
-      )
+    const decrypter = this.getDecrypter();
+    (decrypter
+      ? decrypter.decrypt(
+          new Uint8Array(payload),
+          decryptData.key!.buffer,
+          decryptData.iv!.buffer,
+          getAesModeFromFullSegmentMethod(decryptData.method),
+        )
+      : Promise.reject(noDecrypterError())
+    )
       .then((plaintext) => {
         if (this.fragContextChanged(frag)) {
           return;

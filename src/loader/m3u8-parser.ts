@@ -5,7 +5,7 @@ import { LevelDetails } from './level-details';
 import { LevelKey } from './level-key';
 import { AttrList } from '../utils/attr-list';
 import { isCodecType } from '../utils/codecs';
-import { featureHooks } from '../utils/feature-hooks';
+import { featureHooks, unresolvedVariablesError } from '../utils/feature-hooks';
 import { logger } from '../utils/logger';
 import type { MediaFragment } from './fragment';
 import type { ContentSteeringOptions } from '../types/events';
@@ -122,6 +122,11 @@ export default class M3U8Parser {
     MASTER_PLAYLIST_REGEX.lastIndex = 0;
     if (!string.startsWith('#EXTM3U')) {
       parsed.playlistParsingError = new Error('no EXTM3U delimiter');
+      return parsed;
+    }
+    const missingVariables = unresolvedVariablesError(string);
+    if (missingVariables) {
+      parsed.playlistParsingError = missingVariables;
       return parsed;
     }
     let result: RegExpExecArray | null;
@@ -355,6 +360,11 @@ export default class M3U8Parser {
       level.playlistParsingError = new Error(
         'Missing format identifier #EXTM3U',
       );
+      return level;
+    }
+    const missingVariables = unresolvedVariablesError(string);
+    if (missingVariables) {
+      level.playlistParsingError = missingVariables;
       return level;
     }
     while ((result = LEVEL_PLAYLIST_REGEX_FAST.exec(string)) !== null) {

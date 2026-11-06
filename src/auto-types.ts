@@ -20,7 +20,8 @@ export type AutoFeature =
   | 'fps'
   | 'media-capabilities'
   | 'variable-substitution'
-  | 'progressive';
+  | 'progressive'
+  | 'aes';
 
 /** Options for {@link attach}, {@link loadHls} and {@link detectFeatures}. */
 export type AutoOptions = {

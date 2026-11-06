@@ -60,7 +60,7 @@ const rows: Row[] = [
     features: ['subtitles', 'alt-audio'],
   },
   {
-    name: 'audio renditions without URI and AES-128 keys stay in core',
+    name: 'audio renditions without URI stay in core; AES-128 keys need aes',
     playlists: {
       'index.m3u8': multivariant(
         '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="main"',
@@ -70,7 +70,7 @@ const rows: Row[] = [
         '#EXT-X-KEY:METHOD=AES-128,URI="k"\n#EXTINF',
       ),
     },
-    features: [],
+    features: ['aes'],
   },
   {
     name: 'session keys, steering and variable definitions',
@@ -81,6 +81,16 @@ const rows: Row[] = [
       'video/index.m3u8': fmp4Vod,
     },
     features: ['eme-drm', 'content-steering', 'variable-substitution'],
+  },
+  {
+    name: 'clear-key SAMPLE-AES needs aes',
+    playlists: {
+      'index.m3u8': tsVod.replace(
+        '#EXTINF',
+        '#EXT-X-KEY:METHOD=SAMPLE-AES,URI="k"\n#EXTINF',
+      ),
+    },
+    features: ['mpeg-ts', 'aes'],
   },
   {
     name: 'interstitial date ranges',

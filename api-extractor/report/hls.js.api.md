@@ -473,7 +473,7 @@ export class BaseStreamController extends TaskLoop implements NetworkComponentAP
     // Warning: (ae-setter-with-docs) The doc comment for the property "couldBacktrack" must appear on the getter, not the setter.
     protected set couldBacktrack(_value: boolean);
     // (undocumented)
-    protected decrypter: Decrypter;
+    protected get decrypter(): Decrypter;
     // (undocumented)
     protected _doFragLoad(frag: MediaFragment, level: Level, targetBufferTime?: number | null, progressCallback?: FragmentLoadProgressCallback): Promise<PartsLoadedData | FragLoadedData | null>;
     // (undocumented)
@@ -512,6 +512,8 @@ export class BaseStreamController extends TaskLoop implements NetworkComponentAP
         part: Part | null;
         level: Level;
     } | null;
+    // @internal (undocumented)
+    protected getDecrypter(): Decrypter | null;
     // (undocumented)
     protected getFragmentAtPosition(bufferEnd: number, end: number, levelDetails: LevelDetails): MediaFragment | null;
     // (undocumented)

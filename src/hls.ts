@@ -16,6 +16,7 @@ import { PlaylistLevelType } from './types/loader';
 import { enableLogs, type ILogger } from './utils/logger';
 import { SUPPORTED_INFO_DEFAULT } from './utils/media-decoding-info';
 import { getMediaSource } from './utils/mediasource-helper';
+import { warnMissingFeatures } from './utils/missing-features';
 import { getAudioTracksByGroup } from './utils/rendition-helper';
 import { version } from './version';
 import type { HlsConfig } from './config';
@@ -357,6 +358,9 @@ export default class Hls implements HlsEventEmitter {
       playListLoader.onManifestLoaded,
       playListLoader,
     );
+    if (__USE_LOGS__) {
+      warnMissingFeatures(this);
+    }
   }
 
   private createController(ControllerClass, components: ComponentAPI[]) {

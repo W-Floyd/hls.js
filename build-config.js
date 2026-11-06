@@ -132,6 +132,8 @@ const buildConstants = (
     __USE_METADATA__: JSON.stringify(features.metadata),
     __USE_LATENCY__: JSON.stringify(features.latency),
     __USE_PROGRESSIVE__: JSON.stringify(features.progressive),
+    __USE_AES__: JSON.stringify(features.aes),
+    __USE_LOGS__: JSON.stringify(features.logs),
     __USE_RECOVERY__: JSON.stringify(features.recovery),
 
     ...additional,

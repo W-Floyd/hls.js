@@ -2,6 +2,7 @@ import { EventEmitter } from 'eventemitter3';
 import Transmuxer, { isPromise } from '../demux/transmuxer';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
+import '../features/aes-decrypter';
 import '../features/iframe-remux';
 import '../features/mp4-captions';
 import '../features/mp4-emsg';

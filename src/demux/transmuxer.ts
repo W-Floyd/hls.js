@@ -1,4 +1,3 @@
-import Decrypter from '../crypt/decrypter';
 import MP4Demuxer from '../demux/mp4demuxer';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
@@ -7,7 +6,14 @@ import {
   getAesModeFromFullSegmentMethod,
   isFullSegmentEncryption,
 } from '../utils/encryption-methods-util';
+import {
+  createDecrypter,
+  isMissingFeatureError,
+  missingFeatureError,
+  noDecrypterError,
+} from '../utils/feature-hooks';
 import type { HlsConfig } from '../config';
+import type Decrypter from '../crypt/decrypter';
 import type { HlsEventEmitter } from '../events';
 import type { DecryptData } from '../loader/level-key';
 import type { Demuxer, DemuxerResult, KeyData } from '../types/demuxer';
@@ -57,7 +63,7 @@ export default class Transmuxer {
   private id: PlaylistLevelType;
   private demuxer?: Demuxer;
   private remuxer?: Remuxer;
-  private decrypter?: Decrypter;
+  private decrypter?: Decrypter | null;
   private probe!: Function;
   private decryptionPromise: Promise<TransmuxerResult> | null = null;
   private transmuxConfig!: TransmuxConfig;
@@ -123,24 +129,26 @@ export default class Transmuxer {
 
     const keyData = getEncryptionType(uintData, decryptdata);
     if (keyData && isFullSegmentEncryption(keyData.method)) {
-      const decrypter = this.getDecrypter();
+      const decrypter = (this.decrypter ||= createDecrypter(this.config));
       const aesMode = getAesModeFromFullSegmentMethod(keyData.method);
       this.asyncResult = true;
-      this.decryptionPromise = decrypter
-        .decrypt(
-          uintData,
-          keyData.key.buffer,
-          keyData.iv.buffer,
-          aesMode,
-          chunkMeta.decryptRange,
-        )
-        .then((decryptedData) => {
-          // Calling push here is important; if flush() is called while this is still resolving, this ensures that
-          // the decrypted data has been transmuxed
-          const result = this.push(decryptedData, null, chunkMeta);
-          this.decryptionPromise = null;
-          return result;
-        });
+      this.decryptionPromise = (
+        decrypter
+          ? decrypter.decrypt(
+              uintData,
+              keyData.key.buffer,
+              keyData.iv.buffer,
+              aesMode,
+              chunkMeta.decryptRange,
+            )
+          : Promise.reject(noDecrypterError())
+      ).then((decryptedData) => {
+        // Calling push here is important; if flush() is called while this is still resolving, this ensures that
+        // the decrypted data has been transmuxed
+        const result = this.push(decryptedData, null, chunkMeta);
+        this.decryptionPromise = null;
+        return result;
+      });
       return this.decryptionPromise;
     }
 
@@ -164,7 +172,7 @@ export default class Transmuxer {
         this.observer.emit(Events.ERROR, Events.ERROR, {
           type: ErrorTypes.MEDIA_ERROR,
           details: ErrorDetails.FRAG_PARSING_ERROR,
-          fatal: false,
+          fatal: isMissingFeatureError(error),
           error,
           reason: error.message,
         });
@@ -487,9 +495,12 @@ export default class Transmuxer {
       return error;
     }
     if (!mux) {
-      return new Error(
-        `Failed to find demuxer by probing fragment data${muxers.length > 1 ? '' : ' (only fMP4 is configured; MPEG-TS and packed audio need the mpegTs feature)'}`,
-      );
+      return muxers.length > 1
+        ? new Error('Failed to find demuxer by probing fragment data')
+        : missingFeatureError(
+            'mpeg-ts',
+            'Non-fMP4 media (MPEG-TS, packed audio)',
+          );
     }
     // so let's check that current remuxer and demuxer are still valid
     const demuxer = this.demuxer;
@@ -511,14 +522,6 @@ export default class Transmuxer {
     // in case of continuity change, or track switch
     // we might switch from content type (AAC container to TS container, or TS to fmp4 for example)
     return !this.demuxer || !this.remuxer || discontinuity || trackSwitch;
-  }
-
-  private getDecrypter(): Decrypter {
-    let decrypter = this.decrypter;
-    if (!decrypter) {
-      decrypter = this.decrypter = new Decrypter(this.config);
-    }
-    return decrypter;
   }
 }
 

@@ -7,16 +7,16 @@
   ],
   "tolerance": 0.02,
   "files": {
-    "hls.js": 283783,
+    "hls.js": 285000,
     "hls.min.js": 153423,
-    "hls.mjs": 267422,
+    "hls.mjs": 269000,
     "hls.min.mjs": 147479,
     "hls.light.js": 187388,
     "hls.light.min.js": 99919,
     "hls.light.mjs": 177621,
     "hls.light.min.mjs": 97137,
     "hls.worker.js": 35918,
-    "core.min/core.mjs": 79500,
+    "core.min/core.mjs": 77600,
     "core.min/features/alt-audio.mjs": 88372,
     "core.min/features/cap-level.mjs": 82535,
     "core.min/features/cmcd.mjs": 87962,
@@ -31,6 +31,7 @@
     "core.min/features/subtitles.mjs": 99226,
     "core.min/features/media-capabilities.mjs": 82330,
     "core.min/features/variable-substitution.mjs": 81716,
-    "core.min/features/progressive.mjs": 82600
+    "core.min/features/progressive.mjs": 82600,
+    "core.min/features/aes.mjs": 79800
   }
 }

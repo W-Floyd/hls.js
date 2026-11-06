@@ -51,16 +51,21 @@ function attributes(line: string): Record<string, string> {
 const tagLines = (text: string, tag: string) =>
   text.split(/\r?\n/).filter((line) => line.indexOf(`#${tag}:`) === 0);
 
-// Key systems other than clear-key AES need EME.
-const needsDrm = (line: string) => {
+// Key systems other than clear-key need EME; clear-key (identity) keys need
+// the aes feature.
+function addKeyFeature(line: string, found: Set<string>) {
   const { METHOD, KEYFORMAT } = attributes(line);
-  return (
-    METHOD !== 'NONE' &&
-    ((!!KEYFORMAT && KEYFORMAT !== 'identity') ||
-      METHOD === 'SAMPLE-AES-CTR' ||
-      METHOD === 'SAMPLE-AES-CENC')
-  );
-};
+  if (METHOD === 'NONE') return;
+  if (
+    (!!KEYFORMAT && KEYFORMAT !== 'identity') ||
+    METHOD === 'SAMPLE-AES-CTR' ||
+    METHOD === 'SAMPLE-AES-CENC'
+  ) {
+    found.add('eme-drm');
+  } else if (/^AES-(128|256)|^SAMPLE-AES$/.test(METHOD)) {
+    found.add('aes');
+  }
+}
 
 function scanMultivariant(text: string, found: Set<string>) {
   tagLines(text, 'EXT-X-MEDIA').forEach((line) => {
@@ -71,7 +76,9 @@ function scanMultivariant(text: string, found: Set<string>) {
       found.add('alt-audio');
     }
   });
-  if (tagLines(text, 'EXT-X-SESSION-KEY').some(needsDrm)) found.add('eme-drm');
+  tagLines(text, 'EXT-X-SESSION-KEY').forEach((line) =>
+    addKeyFeature(line, found),
+  );
   if (tagLines(text, 'EXT-X-CONTENT-STEERING').length) {
     found.add('content-steering');
   }
@@ -85,7 +92,7 @@ function scanMedia(text: string, found: Set<string>) {
   if (text.indexOf('#EXTINF') !== -1 && text.indexOf('#EXT-X-MAP') === -1) {
     found.add('mpeg-ts');
   }
-  if (tagLines(text, 'EXT-X-KEY').some(needsDrm)) found.add('eme-drm');
+  tagLines(text, 'EXT-X-KEY').forEach((line) => addKeyFeature(line, found));
   const dateRanges = tagLines(text, 'EXT-X-DATERANGE');
   if (dateRanges.length) found.add('metadata');
   if (

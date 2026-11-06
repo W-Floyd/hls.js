@@ -13,5 +13,6 @@
   "fps": "fps",
   "media-capabilities": "mcap",
   "variable-substitution": "vars",
-  "progressive": "prog"
+  "progressive": "prog",
+  "aes": "aes"
 }

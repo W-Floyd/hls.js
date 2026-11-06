@@ -15,6 +15,7 @@ import {
   areCodecsMediaSourceSupported,
   sampleEntryCodesISO,
 } from '../utils/codecs';
+import { isMissingFeatureError } from '../utils/feature-hooks';
 import { computeReloadInterval } from '../utils/level-helper';
 import type { LevelDetails } from './level-details';
 import type { LoaderConfig, RetryConfig } from '../config';
@@ -736,11 +737,12 @@ class PlaylistLoader implements NetworkComponentAPI {
     const error = levelDetails.playlistParsingError;
     if (error) {
       this.hls.logger.warn(`${error} ${levelDetails.url}`);
-      if (!hls.config.ignorePlaylistParsingErrors) {
+      const missingFeature = isMissingFeatureError(error);
+      if (!hls.config.ignorePlaylistParsingErrors || missingFeature) {
         hls.trigger(Events.ERROR, {
           type: ErrorTypes.NETWORK_ERROR,
           details: ErrorDetails.LEVEL_PARSING_ERROR,
-          fatal: false,
+          fatal: missingFeature,
           url,
           error,
           reason: error.message,

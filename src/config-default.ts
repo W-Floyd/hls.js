@@ -1,4 +1,5 @@
 import { hlsCoreConfig } from './config';
+import { aes } from './features/aes';
 import { altAudio } from './features/alt-audio';
 import { capLevel } from './features/cap-level';
 import { cmcd } from './features/cmcd';
@@ -37,4 +38,5 @@ export const hlsDefaultConfig: HlsConfig = {
   ...(__USE_IFRAMES__ ? iframes : undefined),
   ...(__USE_INTERSTITIALS__ ? interstitials : undefined),
   ...(__USE_PROGRESSIVE__ ? progressive : undefined),
+  ...(__USE_AES__ ? aes : undefined),
 };

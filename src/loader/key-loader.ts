@@ -1,7 +1,7 @@
 import { LoadError } from './fragment-loader';
 import { LevelKey } from './level-key';
 import { ErrorDetails, ErrorTypes } from '../errors';
-import { LoaderContextType } from '../types/loader';
+import { featureHooks, noDecrypterError } from '../utils/feature-hooks';
 import { arrayToHex } from '../utils/hex';
 import { Logger } from '../utils/logger';
 import { parseKeyIdsFromTenc } from '../utils/mp4-tools';
@@ -13,10 +13,6 @@ import type { KeyLoadedData } from '../types/events';
 import type {
   KeyLoaderContext,
   Loader,
-  LoaderCallbacks,
-  LoaderConfiguration,
-  LoaderResponse,
-  LoaderStats,
   PlaylistLevelType,
 } from '../types/loader';
 import type { NullableNetworkDetails } from '../types/network-details';
@@ -190,172 +186,20 @@ export default class KeyLoader extends Logger implements ComponentAPI {
   }
 
   private loadKeyHTTP(frag: EncryptedFragment): Promise<KeyLoadedData> {
-    const decryptdata = frag.decryptdata;
-    const uri = decryptdata.uri;
-    if (!uri) {
-      return Promise.reject(
-        createKeyLoadError(
-          frag,
-          ErrorDetails.KEY_LOAD_ERROR,
-          new Error(`Invalid key URI: "${uri}"`),
-        ),
-      );
-    }
-
-    const cachedKeyInfo = this.keyLoaderInfo[uri];
-    if (cachedKeyInfo) {
-      // LevelKey matches previously loaded key
-      if (cachedKeyInfo.decryptdata.key) {
-        decryptdata.key = cachedKeyInfo.decryptdata.key;
-        cachedKeyInfo.keyLoadPromise = null;
-        return Promise.resolve({ frag, keyInfo: cachedKeyInfo });
-      }
-      // LevelKey loading for other fragment
-      if (cachedKeyInfo.keyLoadPromise) {
-        return cachedKeyInfo.keyLoadPromise.then((keyLoadedData) => {
-          decryptdata.key = cachedKeyInfo.decryptdata.key;
-          return { ...keyLoadedData, frag };
-        });
-      }
-    }
-
-    this.log(
-      `Loading${decryptdata.keyId ? ' keyId: ' + arrayToHex(decryptdata.keyId) : ''} URI: ${decryptdata.uri} from ${frag.type} ${frag.level}`,
-    );
-
-    // Load LevelKey
-    const config = this.config;
-    const Loader = config.loader;
-    const keyLoader = new Loader(config) as Loader<KeyLoaderContext>;
-    frag.keyLoader = keyLoader;
-
-    const keyInfo: KeyLoaderInfo = (this.keyLoaderInfo[uri] = {
-      decryptdata,
-      keyLoadPromise: null,
-      loader: keyLoader,
-    });
-
-    return (keyInfo.keyLoadPromise = new Promise((resolve, reject) => {
-      const loaderContext: KeyLoaderContext = {
-        type: LoaderContextType.KEY,
-        keyInfo,
-        frag,
-        responseType: 'arraybuffer',
-        url: uri,
-      };
-
-      // maxRetry is 0 so that instead of retrying the same key on the same variant multiple times,
-      // key-loader will trigger an error and rely on stream-controller to handle retry logic.
-      // this will also align retry logic with fragment-loader
-      const loadPolicy = config.keyLoadPolicy.default;
-      const loaderConfig: LoaderConfiguration = {
-        loadPolicy,
-        timeout: loadPolicy.maxLoadTimeMs,
-        maxRetry: 0,
-        retryDelay: 0,
-        maxRetryDelay: 0,
-      };
-
-      const loaderCallbacks: LoaderCallbacks<KeyLoaderContext> = {
-        onSuccess: (
-          response: LoaderResponse,
-          stats: LoaderStats,
-          context: KeyLoaderContext,
-          networkDetails: NullableNetworkDetails,
-        ) => {
-          const { frag, keyInfo, url } = context;
-          if (!frag.decryptdata || keyInfo !== this.keyLoaderInfo[url]) {
-            this.resetLoader(context);
-            return reject(
-              createKeyLoadError(
-                frag,
-                ErrorDetails.KEY_LOAD_ERROR,
-                new Error('after key load, decryptdata unset or changed'),
-                networkDetails,
-              ),
-            );
-          }
-
-          keyInfo.decryptdata.key = frag.decryptdata.key = new Uint8Array(
-            response.data as ArrayBuffer,
-          );
-
-          // detach fragment key loader on load success
-          frag.keyLoader = keyInfo.loader = keyInfo.keyLoadPromise = null;
-          resolve({ frag, keyInfo });
-        },
-
-        onError: (
-          response: { code: number; text: string },
-          context: KeyLoaderContext,
-          networkDetails: NullableNetworkDetails,
-          stats: LoaderStats,
-        ) => {
-          this.resetLoader(context);
-          reject(
-            createKeyLoadError(
-              frag,
-              ErrorDetails.KEY_LOAD_ERROR,
-              new Error(
-                `HTTP Error ${response.code} loading key ${response.text}`,
-              ),
-              networkDetails,
-              { url: uri, data: undefined, ...response },
-            ),
-          );
-        },
-
-        onTimeout: (
-          stats: LoaderStats,
-          context: KeyLoaderContext,
-          networkDetails: NullableNetworkDetails,
-        ) => {
-          this.resetLoader(context);
-          reject(
-            createKeyLoadError(
-              frag,
-              ErrorDetails.KEY_LOAD_TIMEOUT,
-              new Error('key loading timed out'),
-              networkDetails,
-            ),
-          );
-        },
-
-        onAbort: (
-          stats: LoaderStats,
-          context: KeyLoaderContext,
-          networkDetails: NullableNetworkDetails,
-        ) => {
-          this.resetLoader(context);
-          reject(
-            createKeyLoadError(
-              frag,
-              ErrorDetails.INTERNAL_ABORTED,
-              new Error('key loading aborted'),
-              networkDetails,
-            ),
-          );
-        },
-      };
-
-      keyLoader.load(loaderContext, loaderConfig, loaderCallbacks);
-    }));
-  }
-
-  private resetLoader(context: KeyLoaderContext) {
-    const { frag, keyInfo, url } = context;
-    const loader = keyInfo.loader;
-    if (frag.keyLoader === loader) {
-      frag.keyLoader = keyInfo.loader = keyInfo.keyLoadPromise = null;
-    }
-    delete this.keyLoaderInfo[url];
-    if (loader) {
-      loader.destroy();
-    }
+    const loadKeyHTTP = __USE_AES__ && featureHooks.loadKeyHTTP;
+    return loadKeyHTTP
+      ? loadKeyHTTP(frag, this.keyLoaderInfo, this.config, this)
+      : Promise.reject(
+          createKeyLoadError(
+            frag,
+            ErrorDetails.KEY_LOAD_ERROR,
+            noDecrypterError(),
+          ),
+        );
   }
 }
 
-function createKeyLoadError(
+export function createKeyLoadError(
   frag: Fragment,
   details: ErrorDetails = ErrorDetails.KEY_LOAD_ERROR,
   error: Error,
