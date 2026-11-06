@@ -1452,6 +1452,9 @@ export default class BaseStreamController
   }
 
   protected flushBufferGap(frag: Fragment) {
+    if (!__USE_RECOVERY__) {
+      return;
+    }
     const media = this.media;
     if (!media) {
       return;

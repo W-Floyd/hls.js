@@ -466,6 +466,9 @@ export default class StreamController
    * Get backtrack fragment. Override to return actual backtrack fragment.
    */
   protected get backtrackFragment(): Fragment | undefined {
+    if (!__USE_RECOVERY__) {
+      return undefined;
+    }
     return this._backtrackFragment;
   }
 
@@ -480,6 +483,9 @@ export default class StreamController
    * Get could backtrack flag. Override to return actual value.
    */
   protected get couldBacktrack(): boolean {
+    if (!__USE_RECOVERY__) {
+      return false;
+    }
     return this._couldBacktrack;
   }
 
@@ -1593,6 +1599,9 @@ export default class StreamController
   }
 
   private backtrack(frag: Fragment) {
+    if (!__USE_RECOVERY__) {
+      return;
+    }
     this.couldBacktrack = true;
     // Causes findFragments to backtrack through fragments to find the keyframe
     this.backtrackFragment = frag;

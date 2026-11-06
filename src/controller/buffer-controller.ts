@@ -1539,7 +1539,7 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => (key === 'initSe
 
     // Support for deprecated liveBackBufferLength
     backBufferLength =
-      details.live && config.liveBackBufferLength !== null
+      __USE_LIVE__ && details.live && config.liveBackBufferLength !== null
         ? config.liveBackBufferLength
         : backBufferLength;
 
@@ -1666,7 +1666,7 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => (key === 'initSe
 
           // Support for deprecated event:
           const track = this.tracks[type];
-          if (this.details?.live) {
+          if (__USE_LIVE__ && this.details?.live) {
             this.hls.trigger(Events.LIVE_BACK_BUFFER_REACHED, {
               bufferEnd: targetBackBufferPosition,
             });
@@ -1739,7 +1739,7 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => (key === 'initSe
       return null;
     }
     const playlistEnd = details.edge;
-    if (details.live && this.hls.config.liveDurationInfinity) {
+    if (__USE_LIVE__ && details.live && this.hls.config.liveDurationInfinity) {
       const len = details.fragments.length;
       if (len && !!(mediaSource as any).setLiveSeekableRange) {
         const start = Math.max(0, details.fragmentStart);
@@ -1788,7 +1788,7 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => (key === 'initSe
       }
       mediaSource.duration = duration;
     }
-    if (start !== undefined && end !== undefined) {
+    if (__USE_LIVE__ && start !== undefined && end !== undefined) {
       this.log(
         `MediaSource duration is set to ${mediaSource.duration}. Setting seekable range to ${start}-${end}.`,
       );
