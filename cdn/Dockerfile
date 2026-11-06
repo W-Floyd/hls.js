@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=/root/.npm \
   npm ci --ignore-scripts --offline --no-audit --no-fund \
   || npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
 COPY . .
-RUN npx rollup --config --configType core --configType coreNoLogs --configType autoEsm --configType autoUmd \
+RUN npx rollup --config --configType core --configType coreNoLogs --configType coreMin --configType autoEsm --configType autoUmd \
   && rm -rf node_modules/@swc/core-linux-*-musl
 
 FROM node:22-slim
@@ -24,6 +24,7 @@ COPY --from=build /src/node_modules/@esbuild node_modules/@esbuild
 COPY --from=build /src/node_modules/@swc node_modules/@swc
 COPY --from=build --exclude=*.map /src/dist/core dist/core
 COPY --from=build --exclude=*.map /src/dist/core-nolog dist/core-nolog
+COPY --from=build --exclude=*.map /src/dist/core.min dist/core.min
 COPY --from=build /src/dist/hls.auto.min.mjs /src/dist/hls.auto.min.js dist/
 COPY src/features/codes.json src/features/presets.json src/features/
 COPY scripts/bundle-features.js scripts/

@@ -37,6 +37,15 @@ export type AutoOptions = {
   /** Use the browser's own HLS playback when available. Default `true`. */
   native?: boolean;
   /**
+   * Load core and each needed feature as separate ES modules from a split
+   * build instead of one bundle: more requests, but shared and cached across
+   * feature sets. A URL is a directory holding the split build (`core.mjs`,
+   * `features/`, `chunks/`, i.e. `dist/core.min`), e.g. vendored as static
+   * files; `true` uses the bundle server's copy (`cdn`). ES module loader only;
+   * the classic-script loader always loads a bundle.
+   */
+  split?: string | boolean;
+  /**
    * Passed to the Hls constructor. Some options also select features, e.g.
    * `cmcd`, `drmSystems`, `capLevelToPlayerSize`.
    */
@@ -56,9 +65,12 @@ export type DetectedFeatures = {
 
 /** Result of {@link loadHls}. */
 export type LoadedHls = {
-  /** Hls from the bundle holding exactly `features`. */
+  /** Hls from the bundle holding exactly `features`, or split-build core. */
   Hls: typeof Hls;
   features: AutoFeature[];
-  /** `options.config`, plus a playlist loader that reuses detection's fetches. */
+  /**
+   * `options.config`, plus a playlist loader that reuses detection's fetches
+   * and, in split mode, the features' config. Pass it to `new Hls()`.
+   */
   config: Partial<HlsConfig>;
 };

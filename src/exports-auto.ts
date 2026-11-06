@@ -1,6 +1,12 @@
-import { createAuto } from './auto';
-import type { AutoOptions, DetectedFeatures, LoadedHls } from './auto-types';
+import { createAuto, loadSplit as loadSplitBuild } from './auto';
+import type {
+  AutoFeature,
+  AutoOptions,
+  DetectedFeatures,
+  LoadedHls,
+} from './auto-types';
 import type Hls from 'hls.js';
+import type { HlsConfig } from 'hls.js';
 
 export type {
   AutoFeature,
@@ -41,3 +47,13 @@ export const detectFeatures: (
   src: string,
   options?: AutoOptions,
 ) => Promise<DetectedFeatures> = auto.detectFeatures;
+
+/**
+ * Core plus `features` from a split build directory (`core.mjs`, `features/`,
+ * `chunks/`, i.e. `dist/core.min`), with no detection: the Hls class and the
+ * features' config to pass to `new Hls()`.
+ */
+export const loadSplit: (
+  base: string,
+  features: AutoFeature[],
+) => Promise<{ Hls: typeof Hls; config: Partial<HlsConfig> }> = loadSplitBuild;

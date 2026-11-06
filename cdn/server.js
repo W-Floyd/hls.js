@@ -18,6 +18,9 @@
  *   GET /features              feature names and their codes
  *   GET /hls-auto.min.mjs      loader that picks a bundle per stream (src/auto.ts);
  *   GET /hls-auto.min.js       classic-script form, global HlsAuto
+ *   GET /split/<build>/core.mjs, /split/<build>/features/<name>.mjs
+ *                              the minified split build, for the auto loader's
+ *                              `split` mode; <build> is `build` from /features
  *
  * Env: PORT (8080), CACHE_DIR (os tmpdir), CACHE_CONTROL (public, max-age=3600),
  * CACHE_PRUNE_AFTER_HOURS (24), CACHE_MAX_SIZE (1G; bytes, or e.g. 500M, 2G; 0 for unbounded)
@@ -42,6 +45,10 @@ const PORT = Number(process.env.PORT) || 8080;
 const CACHE_CONTROL = process.env.CACHE_CONTROL || 'public, max-age=3600';
 // .nolog bundles need the log-stripped split build; without it they 404.
 const HAS_NOLOG_SPLIT = fs.existsSync(splitDir(false));
+// Minified split build (rollup configType coreMin), served as-is under
+// /split/<BUILD_ID>/ for the auto loader's `split` mode.
+const SPLIT_MIN = path.resolve(__dirname, '..', 'dist', 'core.min');
+const HAS_SPLIT_MIN = fs.existsSync(SPLIT_MIN);
 // The auto loader (src/auto.ts), served as-is.
 const LOADERS = {
   'hls-auto.min.mjs': path.resolve(__dirname, '..', 'dist', 'hls.auto.min.mjs'),
@@ -65,6 +72,7 @@ const BUILD_ID = (() => {
       });
   walk(splitDir(true));
   if (HAS_NOLOG_SPLIT) walk(splitDir(false));
+  if (HAS_SPLIT_MIN) walk(SPLIT_MIN);
   hash.update(fs.readFileSync(require.resolve('../scripts/bundle-features')));
   hash.update(JSON.stringify([featureCodes, presets]));
   hash.update(fs.readFileSync(__filename));
@@ -364,6 +372,63 @@ function serveLoader(req, res, name) {
   send(res, 200, req.method === 'HEAD' ? null : body, headers);
 }
 
+// The minified split build, read once. Gzip is ready at startup; brotli is
+// compressed in the background and preferred once it exists.
+const splitFiles = new Map();
+if (HAS_SPLIT_MIN) {
+  const walkSplit = (dir) =>
+    fs.readdirSync(dir, { withFileTypes: true }).forEach((entry) => {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walkSplit(file);
+      } else if (entry.name.endsWith('.mjs')) {
+        const source = fs.readFileSync(file);
+        const bodies = {
+          identity: source,
+          gzip: zlib.gzipSync(source, {
+            level: zlib.constants.Z_BEST_COMPRESSION,
+          }),
+        };
+        splitFiles.set(path.relative(SPLIT_MIN, file), bodies);
+        background(
+          `brotli ${entry.name}`,
+          brotli(11)(source).then((br) => {
+            bodies.br = br;
+          }),
+        );
+      }
+    });
+  walkSplit(SPLIT_MIN);
+}
+
+function serveSplit(req, res, build, file) {
+  const bodies = build === BUILD_ID && splitFiles.get(file);
+  if (!bodies) {
+    send(res, 404, 'Unknown split build file; get `build` from /features.\n');
+    return;
+  }
+  const accepted = String(req.headers['accept-encoding'] || '');
+  const encoding = ['br', 'gzip'].find(
+    (token) => bodies[token] && accepted.includes(token),
+  );
+  const etag = `"${BUILD_ID}-${file}-${encoding || 'identity'}"`;
+  const headers = {
+    'Content-Type': 'text/javascript; charset=utf-8',
+    // The build id is in the path, so the content never changes.
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    ETag: etag,
+    Vary: 'Accept-Encoding',
+  };
+  if (req.headers['if-none-match'] === etag) {
+    send(res, 304, null, headers);
+    return;
+  }
+  const body = bodies[encoding || 'identity'];
+  if (encoding) headers['Content-Encoding'] = encoding;
+  headers['Content-Length'] = body.length;
+  send(res, 200, req.method === 'HEAD' ? null : body, headers);
+}
+
 const server = http.createServer((req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     send(res, 405, 'Method not allowed\n', { Allow: 'GET, HEAD' });
@@ -379,11 +444,19 @@ const server = http.createServer((req, res) => {
     serveLoader(req, res, name);
     return;
   }
+  const split =
+    /^split\/([0-9a-f]+)\/((?:features|chunks)\/)?([a-z0-9-]+\.mjs)$/.exec(
+      name,
+    );
+  if (split) {
+    serveSplit(req, res, split[1], (split[2] || '') + split[3]);
+    return;
+  }
   if (name === 'features') {
     send(
       res,
       200,
-      `${JSON.stringify({ build: BUILD_ID, featureCodes, presets })}\n`,
+      `${JSON.stringify({ build: BUILD_ID, split: HAS_SPLIT_MIN, featureCodes, presets })}\n`,
       {
         'Content-Type': 'application/json',
       },

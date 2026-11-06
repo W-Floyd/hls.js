@@ -248,10 +248,39 @@ function prefetchedLoader(
   } as unknown as PlaylistLoaderConstructor;
 }
 
+const importModule = (url: string): Promise<any> =>
+  import(/* webpackIgnore: true */ /* @vite-ignore */ url);
+
+const toIdentifier = (feature: string) =>
+  feature.replace(/-(\w)/g, (_, letter: string) => letter.toUpperCase());
+
+/**
+ * Core plus `features` from a split build directory (`core.mjs`, `features/`,
+ * `chunks/`): the Hls class and the features' config to pass to `new Hls()`.
+ * Core is shared by every feature set loaded on the page, so features go in
+ * the config rather than `Hls.DefaultConfig`.
+ */
+export function loadSplit(
+  base: string,
+  features: AutoFeature[],
+): Promise<{ Hls: HlsClass; config: Partial<HlsConfig> }> {
+  const dir = absolute(base.replace(/\/?$/, '/'));
+  return Promise.all([
+    importModule(`${dir}core.mjs`),
+    ...features.map((feature) => importModule(`${dir}features/${feature}.mjs`)),
+  ]).then(([core, ...modules]) => ({
+    Hls: core.default,
+    config: Object.assign(
+      {},
+      ...modules.map((module, i) => module[toIdentifier(features[i])]),
+    ),
+  }));
+}
+
 export function createAuto(defaultCdn: string, format: 'esm' | 'iife') {
   const loadBundle = (url: string): Promise<HlsClass> =>
     format === 'esm'
-      ? import(/* webpackIgnore: true */ /* @vite-ignore */ url).then(
+      ? importModule(url).then(
           (module: { default: HlsClass }) => module.default,
         )
       : new Promise((resolve, reject) => {
@@ -268,21 +297,47 @@ export function createAuto(defaultCdn: string, format: 'esm' | 'iife') {
    * reuses the playlists fetched during detection.
    */
   function loadHls(src: string, options: AutoOptions = {}): Promise<LoadedHls> {
-    return detectFeatures(src, options).then(({ features, playlists }) => {
-      const codes = features.map((feature) => CODES[feature]);
-      const base = (options.cdn || defaultCdn).replace(/\/?$/, '/');
-      const name = `hls-${codes.join('-') || 'core'}.min.${format === 'esm' ? 'mjs' : 'js'}`;
-      return loadBundle(base + name).then((HlsBundle) => {
-        const config: Partial<HlsConfig> = { ...options.config };
-        if (!config.pLoader && playlists.size) {
-          config.pLoader = prefetchedLoader(
-            config.loader || HlsBundle.DefaultConfig.loader,
-            playlists,
-          );
-        }
-        return { Hls: HlsBundle, features, config };
-      });
-    });
+    const base = (options.cdn || defaultCdn).replace(/\/?$/, '/');
+    const split = format === 'esm' ? options.split : undefined;
+    // The bundle server's split build is versioned by build id; look it up
+    // alongside detection. Without one, fall back to a bundle.
+    const splitDir: Promise<string | null> =
+      typeof split === 'string'
+        ? Promise.resolve(split)
+        : split
+          ? self
+              .fetch(`${base}features`)
+              .then((response) => response.json())
+              .then((info: { build: string; split?: boolean }) =>
+                info.split ? `${base}split/${info.build}/` : null,
+              )
+              .catch(() => null)
+          : Promise.resolve(null);
+    return Promise.all([detectFeatures(src, options), splitDir]).then(
+      ([{ features, playlists }, dir]) => {
+        const codes = features.map((feature) => CODES[feature]);
+        const name = `hls-${codes.join('-') || 'core'}.min.${format === 'esm' ? 'mjs' : 'js'}`;
+        const loaded = dir
+          ? loadSplit(dir, features)
+          : loadBundle(base + name).then((HlsBundle) => ({
+              Hls: HlsBundle,
+              config: {},
+            }));
+        return loaded.then(({ Hls: HlsClass, config: featureConfig }) => {
+          const config: Partial<HlsConfig> = {
+            ...featureConfig,
+            ...options.config,
+          };
+          if (!config.pLoader && playlists.size) {
+            config.pLoader = prefetchedLoader(
+              config.loader || HlsClass.DefaultConfig.loader,
+              playlists,
+            );
+          }
+          return { Hls: HlsClass, features, config };
+        });
+      },
+    );
   }
 
   /**

@@ -1,4 +1,4 @@
-import { attach, detectFeatures, loadHls } from 'hls.js/auto';
+import { attach, detectFeatures, loadHls, loadSplit } from 'hls.js/auto';
 import type Hls from 'hls.js';
 import type { AutoFeature, AutoOptions } from 'hls.js/auto';
 
@@ -6,6 +6,7 @@ const options: AutoOptions = {
   cdn: 'https://cdn.example/',
   features: ['subtitles', 'mpeg-ts'],
   config: { lowLatencyMode: false },
+  split: '/js/hls/',
 };
 
 // @ts-expect-error unknown feature names are rejected
@@ -27,5 +28,10 @@ detectFeatures('/live.m3u8').then(({ features, playlists }) =>
     console.log(features.length, url, text.length, requested),
   ),
 );
+
+loadSplit('/js/hls/', ['mpeg-ts']).then(({ Hls: HlsCore, config }) => {
+  const hls: Hls = new HlsCore(config);
+  return hls;
+});
 
 export { fromAttach, misspelt };

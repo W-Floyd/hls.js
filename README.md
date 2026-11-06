@@ -211,6 +211,8 @@ npm run build -- --configType fullMin # repeat --configType to build more than o
 
 `light` is a preset: its features are listed in `src/features/presets.json`, and `full` has every feature in `src/features/codes.json`. A preset can add `"logs": false` to strip logs (see `USE_LOGS` below). `minimal` is core alone without logs; it is only assembled (`hls-minimal.min.js` on the bundle server), not prebuilt. Any feature can be switched per build with `USE_<FEATURE>=0|1` (e.g. `USE_SUBTITLES=1 npm run build -- --configType lightMin`). The same presets and features assemble single-file bundles from the split build without recompiling: `node scripts/bundle-features.js --format iife light subtitles` (`--no-logs`, or a preset without logs, assembles from `dist/core-nolog`, built by `--configType coreNoLogs`).
 
+The split build can also be served as-is and assembled in the browser: `dist/core.min` (`--configType coreMin`) holds `core.mjs`, `features/<name>.mjs` and shared `chunks/`. The auto loader's `split` option (or its `loadSplit(dir, features)` export) imports core plus only the needed feature modules from such a directory, trading one bundle request for a few cached module requests. `node scripts/vendor-split.js <out>` copies the split build and the ES module auto loader into `<out>/<content hash>/` for static hosting (relative imports rule out per-file fingerprinting), and writes `<out>/manifest.json` naming the directory. The bundle server serves the same files under `/split/<build>/`.
+
 Build-time switches trade debuggability, resilience or stream support for size. All default to on and apply to every config built:
 
 - `USE_LOGS=0` removes log/debug/info/warn calls (errors still log), so `debug: true` prints almost nothing.
