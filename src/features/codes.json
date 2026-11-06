@@ -12,5 +12,6 @@
   "cap-level": "caplevel",
   "fps": "fps",
   "media-capabilities": "mcap",
-  "variable-substitution": "vars"
+  "variable-substitution": "vars",
+  "progressive": "prog"
 }

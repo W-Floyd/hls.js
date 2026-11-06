@@ -1193,6 +1193,8 @@ Disable this test if you'd like to provide your own estimate or use the default 
 
 Enable streaming segment data with fetch loader (experimental).
 
+With `hls.js/core`, also import `hls.js/features/progressive` and add its config; without it, `progressive` is ignored with a warning.
+
 ### `lowLatencyMode`
 
 (default: `true`)

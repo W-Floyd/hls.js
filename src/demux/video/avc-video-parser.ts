@@ -1,6 +1,6 @@
 import BaseVideoParser from './base-video-parser';
 import ExpGolomb from './exp-golomb';
-import { parseSEIMessageFromNALu } from '../../utils/mp4-tools';
+import { parseSEIMessageFromNALu } from '../../utils/mp4-captions';
 import type { ChunkMetadata } from '../../hls';
 import type {
   DemuxedUserdataTrack,

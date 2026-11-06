@@ -111,6 +111,7 @@ function scanConfig(config: Partial<HlsConfig>, found: Set<string>) {
   if (config.capLevelToPlayerSize) found.add('cap-level');
   if (config.capLevelOnFPSDrop) found.add('fps');
   if (config.useMediaCapabilities) found.add('media-capabilities');
+  if (config.progressive) found.add('progressive');
   if (
     config.emeEnabled ||
     config.widevineLicenseUrl ||

@@ -23,7 +23,6 @@ export {
   ErrorActionFlags,
 } from './controller/error-controller';
 export { AttrList } from './utils/attr-list';
-export { default as FetchLoader, fetchSupported } from './utils/fetch-loader';
 export { default as XhrLoader } from './utils/xhr-loader';
 export { isSupported, isMSESupported } from './is-supported';
 export { getMediaSource } from './utils/mediasource-helper';

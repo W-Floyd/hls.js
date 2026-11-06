@@ -5,22 +5,25 @@ import MP4 from '../../../src/remux/mp4-generator';
 import { ChunkMetadata } from '../../../src/types/transmuxer';
 import { logger } from '../../../src/utils/logger';
 import {
+  discardEPB,
+  parseSEIMessageFromNALu,
+} from '../../../src/utils/mp4-captions';
+import { parseEmsg } from '../../../src/utils/mp4-emsg';
+import {
   remuxVideoOnlyIFrameMoof,
   videoOnlyInitSegment,
 } from '../../../src/utils/mp4-iframes';
 import {
   appendUint8Array,
-  discardEPB,
   findBox,
   getSampleData,
-  parseEmsg,
   parseInitSegment,
-  parseSEIMessageFromNALu,
   types,
 } from '../../../src/utils/mp4-tools';
 import type { TrackFragmentSample } from '../../../src/remux/mp4-generator';
 import type { UserdataSample } from '../../../src/types/demuxer';
-import type { IEmsgParsingData, InitData } from '../../../src/utils/mp4-tools';
+import type { IEmsgParsingData } from '../../../src/utils/mp4-emsg';
+import type { InitData } from '../../../src/utils/mp4-tools';
 
 describe('mp4-tools', function () {
   it('preserves SEI user-data event fields and raw bytes', function () {

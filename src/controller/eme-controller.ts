@@ -1,4 +1,5 @@
 import { EventEmitter } from 'eventemitter3';
+import { resolveKeyErrorAction } from './key-error-action';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
 import {
@@ -41,6 +42,7 @@ import { base64Decode, bin2str } from '../utils/numeric-encoding-utils';
 import { stringify } from '../utils/safe-json-stringify';
 import { strToUtf8array } from '../utils/utf8-utils';
 import type { EMEControllerConfig, HlsConfig, LoadPolicy } from '../config';
+import type { IErrorAction } from './error-controller';
 import type Hls from '../hls';
 import type { DecryptData } from '../loader/level-key';
 import type { ComponentAPI } from '../types/component-api';
@@ -49,6 +51,8 @@ import type {
   ManifestLoadedData,
   MediaAttachedData,
 } from '../types/events';
+import type { Level } from '../types/level';
+import type { ILogger } from '../utils/logger';
 
 type KeySystemAccessPromises = {
   keySystemAccess: Promise<MediaKeySystemAccess>;
@@ -186,6 +190,15 @@ export class EMEKeyError extends Error {
  */
 class EMEController extends Logger implements ComponentAPI {
   public static CDMCleanupPromise: Promise<void> | void;
+  // Reached through config.emeController so core doesn't bundle it.
+  /** @internal */
+  static readonly resolveKeyErrorAction: (
+    hls: Hls,
+    data: ErrorData,
+    errorAction: IErrorAction,
+    level: Level | undefined,
+    logger: Pick<ILogger, 'log' | 'warn'>,
+  ) => void = resolveKeyErrorAction;
 
   private readonly hls: Hls | null;
   private readonly config: EMEControllerConfig & {

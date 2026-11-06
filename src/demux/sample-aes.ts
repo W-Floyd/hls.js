@@ -4,7 +4,7 @@
 
 import Decrypter from '../crypt/decrypter';
 import { DecrypterAesMode } from '../crypt/decrypter-aes-mode';
-import { discardEPB } from '../utils/mp4-tools';
+import { discardEPB } from '../utils/mp4-captions';
 import type { HlsConfig } from '../config';
 import type { HlsEventEmitter } from '../events';
 import type {

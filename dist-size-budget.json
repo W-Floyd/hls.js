@@ -16,7 +16,7 @@
     "hls.light.mjs": 177621,
     "hls.light.min.mjs": 97137,
     "hls.worker.js": 35918,
-    "core.min/core.mjs": 81408,
+    "core.min/core.mjs": 79500,
     "core.min/features/alt-audio.mjs": 88372,
     "core.min/features/cap-level.mjs": 82535,
     "core.min/features/cmcd.mjs": 87962,
@@ -30,6 +30,7 @@
     "core.min/features/mpeg-ts.mjs": 98816,
     "core.min/features/subtitles.mjs": 99226,
     "core.min/features/media-capabilities.mjs": 82330,
-    "core.min/features/variable-substitution.mjs": 81716
+    "core.min/features/variable-substitution.mjs": 81716,
+    "core.min/features/progressive.mjs": 82600
   }
 }

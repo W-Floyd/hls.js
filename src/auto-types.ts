@@ -19,7 +19,8 @@ export type AutoFeature =
   | 'cap-level'
   | 'fps'
   | 'media-capabilities'
-  | 'variable-substitution';
+  | 'variable-substitution'
+  | 'progressive';
 
 /** Options for {@link attach}, {@link loadHls} and {@link detectFeatures}. */
 export type AutoOptions = {

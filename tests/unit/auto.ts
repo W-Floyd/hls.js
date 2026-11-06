@@ -109,10 +109,11 @@ const rows: Row[] = [
       features: ['fps', 'subtitles'],
       config: {
         cmcd: {},
+        progressive: true,
         drmSystems: { 'com.widevine.alpha': { licenseUrl: 'https://l.test' } },
       },
     },
-    features: ['subtitles', 'eme-drm', 'cmcd', 'fps'],
+    features: ['subtitles', 'eme-drm', 'cmcd', 'fps', 'progressive'],
   },
   {
     name: 'an unreadable media playlist assumes MPEG-TS',

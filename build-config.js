@@ -71,6 +71,8 @@ const flags = {
   fps: readFeatureFlag('FPS'),
   metadata: readFeatureFlag('METADATA'),
   latency: readFeatureFlag('LATENCY'),
+  progressive: readFeatureFlag('PROGRESSIVE'),
+  logs: readFeatureFlag('LOGS'),
 };
 
 function getFeatureSupport(type) {
@@ -90,6 +92,10 @@ function getFeatureSupport(type) {
     fps: isFeatureEnabled(type, flags.fps, true),
     metadata: isFeatureEnabled(type, flags.metadata, true),
     latency: isFeatureEnabled(type, flags.latency, true),
+    progressive: isFeatureEnabled(type, flags.progressive, true),
+    // USE_LOGS=0 strips log/debug/info/warn calls (~7 KiB br off core);
+    // errors still log.
+    logs: isFeatureEnabled(type, flags.logs, true),
   };
 }
 
@@ -125,6 +131,7 @@ const buildConstants = (
     __USE_FPS__: JSON.stringify(features.fps),
     __USE_METADATA__: JSON.stringify(features.metadata),
     __USE_LATENCY__: JSON.stringify(features.latency),
+    __USE_PROGRESSIVE__: JSON.stringify(features.progressive),
 
     ...additional,
   },
@@ -163,7 +170,34 @@ const babelPresetEnvTargets = {
   edge: '14',
 };
 
-const babelTsWithPresetEnvTargets = ({ targets, stripConsole }) =>
+const LOG_METHODS = ['log', 'debug', 'info', 'warn'];
+const isLoggerObject = (node) =>
+  node.type === 'ThisExpression' ||
+  (node.type === 'Identifier' && /logger$/i.test(node.name)) ||
+  (node.type === 'MemberExpression' &&
+    !node.computed &&
+    /logger$/i.test(node.property.name));
+
+// Removes `this.log(...)`, `logger.warn(...)`, `this.logger.info(...)` etc.
+// statements. Matches by name: core has no non-logging methods with these names.
+const stripLogsPlugin = {
+  visitor: {
+    ExpressionStatement(espath) {
+      const call = espath.node.expression;
+      if (
+        call.type === 'CallExpression' &&
+        call.callee.type === 'MemberExpression' &&
+        !call.callee.computed &&
+        LOG_METHODS.includes(call.callee.property.name) &&
+        isLoggerObject(call.callee.object)
+      ) {
+        espath.remove();
+      }
+    },
+  },
+};
+
+const babelTsWithPresetEnvTargets = ({ targets, stripConsole, stripLogs }) =>
   babel({
     extensions,
     babelHelpers: 'bundled',
@@ -225,6 +259,7 @@ const babelTsWithPresetEnvTargets = ({ targets, stripConsole }) =>
           },
         },
       },
+      ...(stripLogs ? [stripLogsPlugin] : []),
       ['@babel/plugin-transform-object-assign'],
       ['@babel/plugin-transform-optional-chaining'],
 
@@ -242,14 +277,19 @@ const babelTsWithPresetEnvTargets = ({ targets, stripConsole }) =>
     ],
   });
 
-const buildBabelLegacyBrowsers = ({ stripConsole }) =>
+const buildBabelLegacyBrowsers = ({ stripConsole, stripLogs }) =>
   babelTsWithPresetEnvTargets({
     targets: babelPresetEnvTargets,
     stripConsole,
+    stripLogs,
   });
 
-const buildBabelEsm = ({ stripConsole }) =>
-  babelTsWithPresetEnvTargets({ targets: { esmodules: true }, stripConsole });
+const buildBabelEsm = ({ stripConsole, stripLogs }) =>
+  babelTsWithPresetEnvTargets({
+    targets: { esmodules: true },
+    stripConsole,
+    stripLogs,
+  });
 
 const basePlugins = [
   nodeResolve({
@@ -435,8 +475,18 @@ const buildRollupConfig = ({
         ? [alias({ entries: distAliases })]
         : []),
       ...(format === 'esm'
-        ? [buildBabelEsm({ stripConsole: true })]
-        : [buildBabelLegacyBrowsers({ stripConsole: true })]),
+        ? [
+            buildBabelEsm({
+              stripConsole: true,
+              stripLogs: !featureSupport.logs,
+            }),
+          ]
+        : [
+            buildBabelLegacyBrowsers({
+              stripConsole: true,
+              stripLogs: !featureSupport.logs,
+            }),
+          ]),
       ...(minified ? [terser()] : []),
       ...(includeCoverage
         ? [istanbul({ exclude: ['tests/**/*', 'node_modules/**/*'] })]
@@ -571,7 +621,10 @@ const configs = Object.entries({
           __IN_WORKER__: JSON.stringify(true),
         }),
       ),
-      buildBabelLegacyBrowsers({ stripConsole: true }),
+      buildBabelLegacyBrowsers({
+        stripConsole: true,
+        stripLogs: !getFeatureSupport(BUILD_TYPE.full).logs,
+      }),
       terser(),
     ],
   },

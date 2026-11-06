@@ -1320,6 +1320,8 @@ export class EMEController extends Logger implements ComponentAPI {
     loadKey(frag: EncryptedFragment): Promise<LevelKey>;
     // (undocumented)
     renewKeySession(levelKey: LevelKey, context: MediaKeySessionContext): Promise<LevelKey>;
+    // @internal (undocumented)
+    static readonly resolveKeyErrorAction: (hls: Hls, data: ErrorData, errorAction: IErrorAction, level: Level | undefined, logger: Pick<ILogger, 'log' | 'warn'>) => void;
     // (undocumented)
     selectKeySystemFormat(frag: Fragment): Promise<KeySystemFormats>;
 }
@@ -1785,6 +1787,8 @@ export class FetchLoader extends BaseLoader {
     protected getNetworkDetails(): Response | null;
     // (undocumented)
     getResponseHeader(name: string): string | null;
+    // (undocumented)
+    static isSupported: () => boolean;
     // (undocumented)
     protected loadInternal(): void;
     // (undocumented)
@@ -2542,6 +2546,7 @@ export type HlsConfig = {
     errorController: typeof ErrorController;
     fpsController?: typeof FPSController;
     progressive: boolean;
+    progressiveLoader?: typeof FetchLoader;
     lowLatencyMode: boolean;
     primarySessionId?: string;
 } & ABRControllerConfig & BufferControllerConfig & CapLevelControllerConfig & EMEControllerConfig & ErrorControllerConfig & FPSControllerConfig & GapControllerConfig & LevelControllerConfig & MP4RemuxerConfig & IFrameControllerConfig & StreamControllerConfig & SelectionPreferences & LatencyControllerConfig & MetadataControllerConfig & TimelineControllerConfig & TSDemuxerConfig & HlsLoadPolicies & PlaylistControllerConfig & FragmentLoaderConfig & PlaylistLoaderConfig;
@@ -3193,6 +3198,10 @@ export class InterstitialsController extends Logger implements NetworkComponentA
     constructor(hls: Hls, HlsPlayerClass: typeof Hls);
     // (undocumented)
     destroy(): void;
+    // @internal (undocumented)
+    static readonly filterReplacedPrimary: <T extends MediaFragment | Part>(frag: T, details: LevelDetails | undefined, interstitials: InterstitialsManager | null, playhead: number) => T | null;
+    // @internal (undocumented)
+    static readonly fragOverlapsQueuedInterstitial: (frag: MediaFragment | Part, playerQueue: HlsAssetPlayer[] | undefined, playhead: number) => boolean;
     // (undocumented)
     get interstitialsManager(): InterstitialsManager | null;
     // (undocumented)

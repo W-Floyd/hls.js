@@ -3,6 +3,8 @@ import Transmuxer, { isPromise } from '../demux/transmuxer';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
 import '../features/iframe-remux';
+import '../features/mp4-captions';
+import '../features/mp4-emsg';
 import { mpegTs } from '../features/mpeg-ts';
 import { enableLogs, type ILogger } from '../utils/logger';
 import type { RemuxedTrack, RemuxerResult } from '../types/remuxer';

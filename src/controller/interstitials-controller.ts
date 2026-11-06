@@ -46,6 +46,7 @@ import type {
   InterstitialPlayer,
 } from './interstitial-player';
 import type Hls from '../hls';
+import type { MediaFragment, Part } from '../loader/fragment';
 import type { InterstitialId } from '../loader/interstitial-event';
 import type { LevelDetails } from '../loader/level-details';
 import type { SourceBufferName } from '../types/buffer';
@@ -105,9 +106,19 @@ export default class InterstitialsController
   implements NetworkComponentAPI
 {
   // Reached through config.interstitialsController so core doesn't bundle them.
-  static readonly filterReplacedPrimary = filterReplacedPrimary;
-  static readonly fragOverlapsQueuedInterstitial =
-    fragOverlapsQueuedInterstitial;
+  /** @internal */
+  static readonly filterReplacedPrimary: <T extends MediaFragment | Part>(
+    frag: T,
+    details: LevelDetails | undefined,
+    interstitials: InterstitialsManager | null,
+    playhead: number,
+  ) => T | null = filterReplacedPrimary;
+  /** @internal */
+  static readonly fragOverlapsQueuedInterstitial: (
+    frag: MediaFragment | Part,
+    playerQueue: HlsAssetPlayer[] | undefined,
+    playhead: number,
+  ) => boolean = fragOverlapsQueuedInterstitial;
 
   private readonly HlsPlayerClass: typeof Hls;
   private readonly hls: Hls;

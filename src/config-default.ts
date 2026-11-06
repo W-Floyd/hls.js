@@ -11,6 +11,7 @@ import { latency } from './features/latency';
 import { mediaCapabilities } from './features/media-capabilities';
 import { metadata } from './features/metadata';
 import { mpegTs } from './features/mpeg-ts';
+import { progressive } from './features/progressive';
 import { subtitles } from './features/subtitles';
 import { variableSubstitution } from './features/variable-substitution';
 import type { HlsConfig } from './config';
@@ -35,4 +36,5 @@ export const hlsDefaultConfig: HlsConfig = {
   ...(__USE_CONTENT_STEERING__ ? contentSteering : undefined),
   ...(__USE_IFRAMES__ ? iframes : undefined),
   ...(__USE_INTERSTITIALS__ ? interstitials : undefined),
+  ...(__USE_PROGRESSIVE__ ? progressive : undefined),
 };

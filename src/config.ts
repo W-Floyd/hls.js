@@ -3,7 +3,6 @@ import BufferController from './controller/buffer-controller';
 import ErrorController from './controller/error-controller';
 import GapController from './controller/gap-controller';
 import StreamController from './controller/stream-controller';
-import FetchLoader, { fetchSupported } from './utils/fetch-loader';
 import { clamp } from './utils/number';
 import { stringify } from './utils/safe-json-stringify';
 import XhrLoader from './utils/xhr-loader';
@@ -42,6 +41,7 @@ import type {
   VideoSelectionOption,
 } from './types/media-playlist';
 import type { CuesInterface } from './utils/cues';
+import type FetchLoader from './utils/fetch-loader';
 import type { ILogger } from './utils/logger';
 import type {
   getMediaDecodingInfoPromise,
@@ -416,6 +416,8 @@ export type HlsConfig = {
   errorController: typeof ErrorController;
   fpsController?: typeof FPSController;
   progressive: boolean;
+  /** Set by the `progressive` feature; `progressive` needs it. */
+  progressiveLoader?: typeof FetchLoader;
   lowLatencyMode: boolean;
   primarySessionId?: string;
 } & ABRControllerConfig &
@@ -825,14 +827,20 @@ function deepCpy(obj: any): any {
  */
 export function enableStreamingMode(config: HlsConfig, logger: ILogger) {
   const currentLoader = config.loader;
-  if (currentLoader !== FetchLoader && currentLoader !== XhrLoader) {
+  const FetchLoader = config.progressiveLoader;
+  if (!FetchLoader) {
+    logger.warn(
+      '[config]: progressive needs the progressive feature; using XhrLoader',
+    );
+    config.progressive = false;
+  } else if (currentLoader !== FetchLoader && currentLoader !== XhrLoader) {
     // If a developer has configured their own loader, respect that choice
     logger.log(
       '[config]: Custom loader detected, cannot enable progressive streaming',
     );
     config.progressive = false;
   } else {
-    const canStreamProgressively = fetchSupported();
+    const canStreamProgressively = FetchLoader.isSupported();
     if (canStreamProgressively) {
       config.loader = FetchLoader;
       config.progressive = true;

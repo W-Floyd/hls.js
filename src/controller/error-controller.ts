@@ -1,7 +1,6 @@
 import { findFragmentByPTS } from './fragment-finders';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
-import { HdcpLevels } from '../types/level';
 import { LoaderContextType, PlaylistLevelType } from '../types/loader';
 import { getCodecsForMimeType } from '../utils/codecs';
 import {
@@ -12,10 +11,8 @@ import {
   isUnusableKeyError,
   shouldRetry,
 } from '../utils/error-helper';
-import { arrayToHex } from '../utils/hex';
 import { Logger } from '../utils/logger';
 import type { RetryConfig } from '../config';
-import type { LevelKey } from '../hls';
 import type Hls from '../hls';
 import type { Fragment, MediaFragment } from '../loader/fragment';
 import type { NetworkComponentAPI } from '../types/component-api';
@@ -106,25 +103,6 @@ export default class ErrorController
       return hls.loadLevel;
     }
     return currentLevel;
-  }
-
-  private variantHasKey(
-    level: Level | undefined,
-    keyInError: LevelKey,
-  ): boolean {
-    if (level) {
-      if (level.details?.hasKey(keyInError)) {
-        return true;
-      }
-      const audioGroupsIds = level.audioGroups;
-      if (audioGroupsIds) {
-        const audioTracks = this.hls.allAudioTracks.filter(
-          (track) => audioGroupsIds.indexOf(track.groupId) >= 0,
-        );
-        return audioTracks.some((track) => track.details?.hasKey(keyInError));
-      }
-    }
-    return false;
   }
 
   private onManifestLoading() {
@@ -528,61 +506,20 @@ export default class ErrorController
         }
       }
     } else if (
-      errorAction.flags & ErrorActionFlags.MoveAllAlternatesMatchingHDCP
+      __USE_EME_DRM__ &&
+      errorAction.flags &
+        (ErrorActionFlags.MoveAllAlternatesMatchingHDCP |
+          ErrorActionFlags.MoveAllAlternatesMatchingKey)
     ) {
-      const levelIndex = this.getVariantLevelIndex(data.frag);
-      const level = hls.levels[levelIndex];
-      const restrictedHdcpLevel = (level as Level | undefined)?.attrs[
-        'HDCP-LEVEL'
-      ];
-      errorAction.hdcpLevel = restrictedHdcpLevel;
-      const restrictedOutputErrorWhileNoneDeclared =
-        restrictedHdcpLevel === 'NONE';
-      if (restrictedHdcpLevel && !restrictedOutputErrorWhileNoneDeclared) {
-        hls.maxHdcpLevel =
-          HdcpLevels[HdcpLevels.indexOf(restrictedHdcpLevel) - 1];
-        errorAction.resolved = true;
-        this.warn(
-          `Restricting playback to HDCP-LEVEL of "${hls.maxHdcpLevel}" or lower`,
-        );
-      } else {
-        if (restrictedOutputErrorWhileNoneDeclared) {
-          this.warn(`HDCP policy resticted output with HDCP-LEVEL=NONE`);
-        }
-        // Move alternates matching key when no HDCP-LEVEL attribute is found
-        errorAction.flags |= ErrorActionFlags.MoveAllAlternatesMatchingKey;
-      }
+      // Only EME errors carry these flags, so the handler ships with eme-drm.
+      hls.config.emeController?.resolveKeyErrorAction(
+        hls,
+        data,
+        errorAction,
+        hls.levels[this.getVariantLevelIndex(data.frag)] as Level | undefined,
+        this,
+      );
     }
-    if (errorAction.flags & ErrorActionFlags.MoveAllAlternatesMatchingKey) {
-      const levelKey = data.decryptdata;
-      if (levelKey) {
-        // Penalize all levels with key
-        const levels = this.hls.levels;
-        const levelCountWithError = levels.length;
-        for (let i = levelCountWithError; i--; ) {
-          if (this.variantHasKey(levels[i], levelKey)) {
-            this.log(
-              `Banned key found in level ${i} (${levels[i].bitrate}bps) or audio group "${levels[i].audioGroups?.join(',')}" (${data.frag?.type} fragment) ${arrayToHex(levelKey.keyId || [])}`,
-            );
-            levels[i].fragmentError++;
-            levels[i].loadError++;
-            this.log(`Removing level ${i} with key error (${data.error})`);
-            this.hls.removeLevel(i);
-          }
-        }
-        const frag = data.frag;
-        if (this.hls.levels.length < levelCountWithError) {
-          errorAction.resolved = true;
-        } else if (frag && frag.type !== PlaylistLevelType.MAIN) {
-          // Ignore key error for audio track with unmatched key (main session error)
-          const fragLevelKey = frag.decryptdata;
-          if (fragLevelKey && !levelKey.matches(fragLevelKey)) {
-            errorAction.resolved = true;
-          }
-        }
-      }
-    }
-
     // If not resolved by previous actions try to switch to next level
     if (!errorAction.resolved) {
       this.switchLevel(data, nextAutoLevel);

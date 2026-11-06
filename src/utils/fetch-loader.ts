@@ -32,6 +32,8 @@ export function fetchSupported() {
 const BYTERANGE = /(\d+)-(\d+)\/(\d+)/;
 
 class FetchLoader extends BaseLoader {
+  static isSupported: () => boolean = fetchSupported;
+
   private fetchSetup: NonNullable<HlsConfig['fetchSetup']>;
   private request: Promise<Request> | Request | null = null;
   private response: Response | null = null;

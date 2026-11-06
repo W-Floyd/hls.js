@@ -2,39 +2,30 @@
  * MP4 demuxer
  */
 import { dummyTrack } from './dummy-demuxed-track';
-import {
-  type DemuxedAudioTrack,
-  type DemuxedMetadataTrack,
-  type DemuxedUserdataTrack,
-  type Demuxer,
-  type DemuxerResult,
-  type KeyData,
-  MetadataSchema,
-  type PassthroughTrack,
-} from '../types/demuxer';
+import { featureHooks } from '../utils/feature-hooks';
 import { logger as defaultLogger } from '../utils/logger';
 import {
   appendUint8Array,
-  findBox,
   hasBoxData,
-  parseEmsg,
   parseInitSegment,
-  parseSamples,
   parseSamplesAndTiming,
   RemuxerTrackIdConfig,
   segmentValidRange,
 } from '../utils/mp4-tools';
 import type { HlsConfig } from '../config';
 import type { HlsEventEmitter } from '../events';
+import type {
+  DemuxedAudioTrack,
+  DemuxedMetadataTrack,
+  DemuxedUserdataTrack,
+  Demuxer,
+  DemuxerResult,
+  KeyData,
+  PassthroughTrack,
+} from '../types/demuxer';
 import type { ChunkMetadata } from '../types/transmuxer';
 import type { ILogger } from '../utils/logger';
-import type {
-  IEmsgParsingData,
-  InitData,
-  ParsedSampleData,
-} from '../utils/mp4-tools';
-
-const emsgSchemePattern = /\/emsg[-/]ID3/i;
+import type { InitData, ParsedSampleData } from '../utils/mp4-tools';
 
 class MP4Demuxer implements Demuxer {
   private remainderData: Uint8Array<ArrayBuffer> | null = null;
@@ -199,7 +190,10 @@ class MP4Demuxer implements Demuxer {
       textTrack.samples = samples;
       return sampleData;
     }
-    textTrack.samples = parseSamples(timeOffset, videoTrack);
+    const captions = __USE_SUBTITLES__ && featureHooks.mp4Captions;
+    textTrack.samples = captions
+      ? captions.parseSamples(timeOffset, videoTrack)
+      : [];
   }
 
   private extractID3Track(
@@ -207,47 +201,14 @@ class MP4Demuxer implements Demuxer {
     timeOffset: number,
   ): DemuxedMetadataTrack {
     const id3Track = this.id3Track as DemuxedMetadataTrack;
-    if (videoTrack.samples.length) {
-      const emsgs = findBox(videoTrack.samples, ['emsg']);
-      if (emsgs) {
-        emsgs.forEach((data: Uint8Array) => {
-          const emsgInfo = parseEmsg(data);
-          if (emsgSchemePattern.test(emsgInfo.schemeIdUri)) {
-            const pts = getEmsgStartTime(emsgInfo, timeOffset);
-            let duration =
-              emsgInfo.eventDuration === 0xffffffff
-                ? Number.POSITIVE_INFINITY
-                : emsgInfo.eventDuration / emsgInfo.timeScale;
-            // Safari takes anything <= 0.001 seconds and maps it to Infinity
-            if (duration <= 0.001) {
-              duration = Number.POSITIVE_INFINITY;
-            }
-            const payload = emsgInfo.payload;
-            id3Track.samples.push({
-              data: payload,
-              len: payload.byteLength,
-              dts: pts,
-              pts: pts,
-              type: MetadataSchema.emsg,
-              duration: duration,
-            });
-          } else if (this.config.enableEmsgKLVMetadata) {
-            const klvSchemaUri =
-              this.config.emsgKLVSchemaUri || MetadataSchema.misbklv;
-            if (emsgInfo.schemeIdUri.startsWith(klvSchemaUri)) {
-              const pts = getEmsgStartTime(emsgInfo, timeOffset);
-              id3Track.samples.push({
-                data: emsgInfo.payload,
-                len: emsgInfo.payload.byteLength,
-                dts: pts,
-                pts: pts,
-                type: MetadataSchema.misbklv,
-                duration: Number.POSITIVE_INFINITY,
-              });
-            }
-          }
-        });
-      }
+    const emsg = __USE_METADATA__ && featureHooks.emsg;
+    if (emsg && videoTrack.samples.length) {
+      emsg.extractEmsgSamples(
+        videoTrack.samples,
+        timeOffset,
+        this.config,
+        id3Track.samples,
+      );
     }
     return id3Track;
   }
@@ -273,16 +234,6 @@ class MP4Demuxer implements Demuxer {
         undefined;
     this.initData = undefined;
   }
-}
-
-function getEmsgStartTime(
-  emsgInfo: IEmsgParsingData,
-  timeOffset: number,
-): number {
-  return Number.isFinite(emsgInfo.presentationTime)
-    ? (emsgInfo.presentationTime as number) / emsgInfo.timeScale
-    : timeOffset +
-        (emsgInfo.presentationTimeDelta as number) / emsgInfo.timeScale;
 }
 
 export default MP4Demuxer;
