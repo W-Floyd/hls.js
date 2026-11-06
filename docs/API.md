@@ -2050,6 +2050,8 @@ Calling this method will:
 
 Detaches and returns MediaSource and SourceBuffers non-destructively in a format that can be passed to `hls.attachMedia(MediaAttachingData)`. This is used by Interstitial asset players that append the same SourceBuffer as the primary player.
 
+With `hls.js/core`, this needs the `interstitials` or `iframes` feature; without either it returns `null` (after detaching), and `attachMedia` with transferred data starts a new MediaSource.
+
 #### `hls.media`
 
 - get: Return the bound videoElement from the hls instance

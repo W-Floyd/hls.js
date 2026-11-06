@@ -7,9 +7,9 @@
   ],
   "tolerance": 0.02,
   "files": {
-    "hls.js": 285000,
-    "hls.min.js": 153423,
-    "hls.mjs": 269000,
+    "hls.js": 286500,
+    "hls.min.js": 154200,
+    "hls.mjs": 270200,
     "hls.min.mjs": 148000,
     "hls.light.js": 188000,
     "hls.light.min.js": 99919,

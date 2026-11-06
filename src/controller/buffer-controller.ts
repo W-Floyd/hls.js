@@ -16,15 +16,16 @@ import {
   addEventListener,
   removeEventListener,
 } from '../utils/event-listener-helper';
+import { featureHooks } from '../utils/feature-hooks';
 import { Logger } from '../utils/logger';
 import {
   getMediaSource,
-  isCompatibleTrackChange,
   isManagedMediaSource,
 } from '../utils/mediasource-helper';
 import { stringify } from '../utils/safe-json-stringify';
 import { timeRangesToString } from '../utils/time-ranges';
 import type { FragmentTracker } from './fragment-tracker';
+import type { TransferHost } from './media-transfer';
 import type { HlsConfig } from '../config';
 import type Hls from '../hls';
 import type { Fragment, MediaFragment, Part } from '../loader/fragment';
@@ -216,46 +217,11 @@ export default class BufferController extends Logger implements ComponentAPI {
   }
 
   public transferMedia(): AttachMediaSourceData | null {
-    const { media, mediaSource } = this;
-    if (!media) {
-      return null;
-    }
-    const tracks = {};
-    if (this.operationQueue) {
-      const updating = this.isUpdating();
-      if (!updating) {
-        this.operationQueue.removeBlockers();
-      }
-      const queued = this.isQueued();
-      if (updating || queued) {
-        this.warn(
-          `Transfering MediaSource with${queued ? ' operations in queue' : ''}${updating ? ' updating SourceBuffer(s)' : ''} ${this.operationQueue}`,
-        );
-      }
-      this.operationQueue.destroy();
-    }
-    const transferData = this.transferData;
-    if (
-      transferData &&
-      !this.sourceBufferCount &&
-      transferData.mediaSource === mediaSource
-    ) {
-      Object.assign(tracks, transferData.tracks);
-    } else {
-      this.sourceBuffers.forEach((tuple) => {
-        const [type] = tuple;
-        if (type) {
-          tracks[type] = Object.assign({}, this.tracks[type]);
-          this.removeBuffer(type);
-        }
-        tuple[0] = tuple[1] = null;
-      });
-    }
-    return {
-      media,
-      mediaSource,
-      tracks,
-    };
+    const mediaTransfer =
+      (__USE_INTERSTITIALS__ || __USE_IFRAMES__) && featureHooks.mediaTransfer;
+    return mediaTransfer
+      ? mediaTransfer.transferMedia(this as unknown as TransferHost)
+      : null;
   }
 
   private initTracks() {
@@ -309,12 +275,19 @@ export default class BufferController extends Logger implements ComponentAPI {
     this.transferData = this.overrides = undefined;
     const MediaSource = getMediaSource(this.appendSource);
     if (MediaSource) {
-      const transferringMedia = !!data.mediaSource;
+      // Without the mediaTransfer hook (interstitials, iframes), start fresh.
+      const transferringMedia =
+        !!data.mediaSource &&
+        !!(
+          (__USE_INTERSTITIALS__ || __USE_IFRAMES__) &&
+          featureHooks.mediaTransfer
+        );
       if (transferringMedia || data.overrides) {
         this.transferData = data;
         this.overrides = data.overrides;
       }
-      const ms = (this.mediaSource = data.mediaSource || new MediaSource());
+      const ms = (this.mediaSource =
+        (transferringMedia && data.mediaSource) || new MediaSource());
       this.assignMediaSource(ms);
       if (transferringMedia) {
         this._objectUrl = media.src;
@@ -390,107 +363,9 @@ export default class BufferController extends Logger implements ComponentAPI {
   }
 
   private attachTransferred() {
-    const media = this.media;
-    const data = this.transferData;
-    if (!data || !media) {
-      return;
-    }
-    const requiredTracks = this.tracks;
-    const transferredTracks = data.tracks;
-    const trackNames = transferredTracks
-      ? Object.keys(transferredTracks)
-      : null;
-    const trackCount = trackNames ? trackNames.length : 0;
-    const mediaSourceOpenCallback = () => {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      Promise.resolve().then(() => {
-        if (this.media && this.mediaSourceOpenOrEnded) {
-          this._onMediaSourceOpen();
-        }
-      });
-    };
-    if (transferredTracks && trackNames && trackCount) {
-      if (!this.tracksReady) {
-        // Wait for CODECS event(s)
-        this.hls.config.startFragPrefetch = true;
-        this.log(`attachTransferred: waiting for SourceBuffer track info`);
-        return;
-      }
-      this
-        .log(`attachTransferred: (bufferCodecEventsTotal ${this.bufferCodecEventsTotal})
-required tracks: ${stringify(requiredTracks, (key, value) => (key === 'initSegment' ? undefined : value))};
-transfer tracks: ${stringify(transferredTracks, (key, value) => (key === 'initSegment' ? undefined : value))}}`);
-      if (!isCompatibleTrackChange(transferredTracks, requiredTracks)) {
-        // destroy attaching media source
-        data.mediaSource = null;
-        data.tracks = undefined;
-
-        const currentTime = media.currentTime;
-
-        const details = this.details;
-        const startTime = Math.max(
-          currentTime,
-          details?.fragments[0].start || 0,
-        );
-        if (startTime - currentTime > 1) {
-          this.log(
-            `attachTransferred: waiting for playback to reach new tracks start time ${currentTime} -> ${startTime}`,
-          );
-          return;
-        }
-        this.warn(
-          `attachTransferred: resetting MediaSource for incompatible tracks ("${Object.keys(transferredTracks)}"->"${Object.keys(requiredTracks)}") start time: ${startTime} currentTime: ${currentTime}`,
-        );
-        this.onMediaDetaching(Events.MEDIA_DETACHING, {});
-        this.onMediaAttaching(Events.MEDIA_ATTACHING, data);
-        media.currentTime = startTime;
-        return;
-      }
-      this.transferData = undefined;
-      trackNames.forEach((trackName) => {
-        const type = trackName as SourceBufferName;
-        const track = transferredTracks[type];
-        if (track) {
-          const sb = track.buffer;
-          if (sb) {
-            // Purge fragment tracker of ejected segments for existing buffer
-            const fragmentTracker = this.fragmentTracker;
-            const playlistType = track.id as PlaylistLevelType;
-            if (
-              fragmentTracker.hasFragments(playlistType) ||
-              fragmentTracker.hasParts(playlistType)
-            ) {
-              const bufferedTimeRanges = BufferHelper.getBuffered(sb);
-              fragmentTracker.detectEvictedFragments(
-                type,
-                bufferedTimeRanges,
-                playlistType,
-                null,
-                null,
-                true,
-              );
-            }
-            // Transfer SourceBuffer
-            const sbIndex = sourceBufferNameToIndex(type);
-            const sbTuple = [type, sb] as Exclude<
-              SourceBuffersTuple[typeof sbIndex],
-              EmptyTuple
-            >;
-            this.sourceBuffers[sbIndex] = sbTuple as any;
-            if (sb.updating && this.operationQueue) {
-              // eslint-disable-next-line @typescript-eslint/no-floating-promises
-              this.operationQueue.prependBlocker(type);
-            }
-            this.trackSourceBuffer(type, track);
-          }
-        }
-      });
-      mediaSourceOpenCallback();
-      this.bufferCreated();
-    } else {
-      this.log(`attachTransferred: MediaSource w/o SourceBuffers`);
-      mediaSourceOpenCallback();
-    }
+    featureHooks.mediaTransfer?.attachTransferred(
+      this as unknown as TransferHost,
+    );
   }
 
   private get mediaSourceOpenOrEnded(): boolean {
@@ -2510,7 +2385,7 @@ function addSource(media: HTMLMediaElement, url: string) {
   media.appendChild(source);
 }
 
-function sourceBufferNameToIndex(type: SourceBufferName) {
+export function sourceBufferNameToIndex(type: SourceBufferName) {
   return type === 'audio' ? 1 : 0;
 }
 
