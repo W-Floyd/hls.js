@@ -22,7 +22,8 @@ export type AutoFeature =
   | 'variable-substitution'
   | 'progressive'
   | 'aes'
-  | 'abr';
+  | 'abr'
+  | 'worker';
 
 /** Options for {@link attach}, {@link loadHls} and {@link detectFeatures}. */
 export type AutoOptions = {

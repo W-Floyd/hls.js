@@ -142,6 +142,7 @@ const buildConstants = (
     __USE_PROGRESSIVE__: JSON.stringify(features.progressive),
     __USE_AES__: JSON.stringify(features.aes),
     __USE_ABR__: JSON.stringify(features.abr),
+    __USE_WORKER__: JSON.stringify(features.worker),
     __USE_LIVE__: JSON.stringify(features.live),
     __USE_ENCRYPTION__: JSON.stringify(features.encryption),
     __USE_LOGS__: JSON.stringify(features.logs),

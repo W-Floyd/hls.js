@@ -222,7 +222,7 @@ Build-time switches trade debuggability, resilience or stream support for size. 
 USE_LOGS=0 USE_RECOVERY=0 USE_LIVE=0 USE_ENCRYPTION=0 npm run build -- --configType core
 ```
 
-Adaptive bitrate is the `abr` feature (in `full` and `light`). Without it, auto level selection starts on the first listed level and stays there unless the app, an error or a level cap changes it, and `hls.bandwidthEstimate` is `NaN`.
+Transmuxing in a Web Worker is the `worker` feature (in `full` and `light`); without it, `enableWorker` is ignored and transmuxing runs on the main thread. Adaptive bitrate is the `abr` feature (in `full` and `light`). Without it, auto level selection starts on the first listed level and stays there unless the app, an error or a level cap changes it, and `hls.bandwidthEstimate` is `NaN`.
 
 Report the size of the built `dist/` files, and check them against the budgets in
 `dist-size-budget.json` (the same check CI runs):

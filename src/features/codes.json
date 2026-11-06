@@ -15,5 +15,6 @@
   "variable-substitution": "vars",
   "progressive": "prog",
   "aes": "aes",
-  "abr": "abr"
+  "abr": "abr",
+  "worker": "worker"
 }

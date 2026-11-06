@@ -286,7 +286,7 @@ describe('TransmuxerInterface tests', function () {
       },
     } as any;
 
-    transmuxerInterfacePrivates.onWorkerMessage(evt);
+    transmuxerInterfacePrivates.workerContext.onMessage(evt);
     expect(triggerStub.callCount).equals(1);
   });
 
@@ -310,7 +310,7 @@ describe('TransmuxerInterface tests', function () {
     };
 
     const spy = sinon.spy(self.URL, 'revokeObjectURL');
-    transmuxerInterfacePrivates.onWorkerMessage(evt);
+    transmuxerInterfacePrivates.workerContext.onMessage(evt);
     expect(spy).to.have.been.calledOnce;
   });
 
@@ -337,7 +337,7 @@ describe('TransmuxerInterface tests', function () {
     };
 
     const spy = sinon.spy(hls.logger, 'log');
-    transmuxerInterfacePrivates.onWorkerMessage(evt);
+    transmuxerInterfacePrivates.workerContext.onMessage(evt);
     expect(spy).to.have.been.calledWith(evt.data.data.message);
   });
 });

@@ -9,7 +9,8 @@
       "fps",
       "progressive",
       "aes",
-      "abr"
+      "abr",
+      "worker"
     ]
   },
   "minimal": {

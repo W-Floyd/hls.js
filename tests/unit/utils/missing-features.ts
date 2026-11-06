@@ -68,6 +68,7 @@ const required: {
 // Optional features: warned about once, playback continues.
 const optional: {
   name: string;
+  hooks?: Hooks;
   userConfig?: Partial<HlsConfig>;
   config?: Partial<HlsConfig>;
   events?: [Events, any][];
@@ -99,6 +100,12 @@ const optional: {
       emeEnabled: true,
     },
     warnings: ['cmcd', 'cap-level', 'fps', 'media-capabilities', 'eme-drm'],
+  },
+  {
+    name: 'worker options without the worker feature',
+    hooks: { transmuxWorker: undefined },
+    userConfig: { enableWorker: true },
+    warnings: ['worker'],
   },
   {
     name: 'present features are not warned about',
@@ -160,8 +167,9 @@ describe('missing features', function () {
   });
 
   optional.forEach(
-    ({ name, userConfig = {}, config = {}, events = [], warnings }) => {
+    ({ name, hooks, userConfig = {}, config = {}, events = [], warnings }) => {
       it(`${name}: warns once per optional feature`, function () {
+        Object.assign(featureHooks, hooks);
         const warned: string[] = [];
         const handlers: Record<string, (event: Events, data: any) => void> = {};
         const hls = {

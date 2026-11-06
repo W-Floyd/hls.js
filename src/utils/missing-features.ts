@@ -1,3 +1,4 @@
+import { featureHooks } from './feature-hooks';
 import { Events } from '../events';
 import type Hls from '../hls';
 import type { ManifestLoadedData } from '../types/events';
@@ -38,6 +39,12 @@ export function warnMissingFeatures(hls: Hls) {
     userConfig.emeEnabled && !config.emeController,
     'eme-drm',
     'emeEnabled',
+  );
+  check(
+    (userConfig.enableWorker || userConfig.workerPath) &&
+      !featureHooks.transmuxWorker,
+    'worker',
+    'enableWorker/workerPath',
   );
   hls.on(Events.MANIFEST_LOADED, (_, data: ManifestLoadedData) => {
     check(

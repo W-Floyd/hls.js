@@ -16,6 +16,7 @@ import { mpegTs } from './features/mpeg-ts';
 import { progressive } from './features/progressive';
 import { subtitles } from './features/subtitles';
 import { variableSubstitution } from './features/variable-substitution';
+import { worker } from './features/worker';
 import type { HlsConfig } from './config';
 
 /**
@@ -41,4 +42,5 @@ export const hlsDefaultConfig: HlsConfig = {
   ...(__USE_PROGRESSIVE__ ? progressive : undefined),
   ...(__USE_AES__ ? aes : undefined),
   ...(__USE_ABR__ ? abr : undefined),
+  ...(__USE_WORKER__ ? worker : undefined),
 };

@@ -1,10 +1,4 @@
 import { EventEmitter } from 'eventemitter3';
-import {
-  hasUMDWorker,
-  injectWorker,
-  loadWorker,
-  removeWorkerFromStore as removeWorkerClient,
-} from './inject-worker';
 import Transmuxer, {
   isPromise,
   TransmuxConfig,
@@ -13,9 +7,11 @@ import Transmuxer, {
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
 import { getM2TSSupportedAudioTypes } from '../utils/codecs';
+import { featureHooks } from '../utils/feature-hooks';
 import { stringify } from '../utils/safe-json-stringify';
 import type { WorkerContext } from './inject-worker';
-import type { HlsEventEmitter, HlsListeners } from '../events';
+import type { WorkerHost } from './transmuxer-worker-client';
+import type { HlsEventEmitter } from '../events';
 import type Hls from '../hls';
 import type { MediaFragment, Part } from '../loader/fragment';
 import type { ErrorData, FragDecryptedData } from '../types/events';
@@ -76,45 +72,26 @@ export default class TransmuxerInterface {
       config.preferManagedMediaSource,
     );
 
-    if (this.useWorker && typeof Worker !== 'undefined') {
-      const logger = this.hls.logger;
-      const canCreateWorker = config.workerPath || hasUMDWorker();
-      if (canCreateWorker) {
-        try {
-          if (config.workerPath) {
-            logger.log(`loading Web Worker ${config.workerPath} for "${id}"`);
-            this.workerContext = loadWorker(config.workerPath);
-          } else {
-            logger.log(`injecting Web Worker for "${id}"`);
-            this.workerContext = injectWorker();
-          }
-          const { worker } = this.workerContext;
-          worker.addEventListener('message', this.onWorkerMessage);
-          worker.addEventListener('error', this.onWorkerError);
-          worker.postMessage({
-            instanceNo: this.instanceNo,
-            cmd: 'init',
-            typeSupported: m2tsTypeSupported,
-            id,
-            config: stringify(config),
-          });
-        } catch (err) {
-          logger.warn(
-            `Error setting up "${id}" Web Worker, fallback to inline`,
-            err,
-          );
-          this.terminateWorker();
-          this.error = null;
-          this.transmuxer = new Transmuxer(
-            this.observer,
-            m2tsTypeSupported,
-            config,
-            '',
-            id,
-            hls.logger,
-          );
-        }
+    const workerClient = featureHooks.transmuxWorker;
+    if (
+      this.useWorker &&
+      workerClient &&
+      typeof Worker !== 'undefined' &&
+      workerClient.canStart(config)
+    ) {
+      try {
+        this.workerContext = workerClient.start(
+          this as unknown as WorkerHost,
+          m2tsTypeSupported,
+        );
         return;
+      } catch (err) {
+        hls.logger.warn(
+          `Error setting up "${id}" Web Worker, fallback to inline`,
+          err,
+        );
+        this.terminateWorker();
+        this.error = null;
       }
     }
 
@@ -150,20 +127,19 @@ export default class TransmuxerInterface {
   }
 
   private terminateWorker() {
-    if (this.workerContext) {
-      const { worker } = this.workerContext;
+    const { workerContext } = this;
+    if (workerContext) {
       this.workerContext = null;
-      worker.removeEventListener('message', this.onWorkerMessage);
-      worker.removeEventListener('error', this.onWorkerError);
-      removeWorkerClient(this.hls.config.workerPath);
+      featureHooks.transmuxWorker?.terminate(
+        workerContext,
+        this.hls.config.workerPath,
+      );
     }
   }
 
   destroy() {
     if (this.workerContext) {
       this.terminateWorker();
-      // @ts-ignore
-      this.onWorkerMessage = this.onWorkerError = null;
     } else {
       const transmuxer = this.transmuxer;
       if (transmuxer) {
@@ -357,77 +333,6 @@ export default class TransmuxerInterface {
     });
     this.onFlush(chunkMeta);
   }
-
-  private onWorkerMessage = (
-    event: MessageEvent<{
-      event: string;
-      data?: any;
-      instanceNo?: number;
-    } | null>,
-  ) => {
-    const data = event.data;
-    const hls = this.hls;
-    if (!hls || !data?.event || data.instanceNo !== this.instanceNo) {
-      return;
-    }
-    switch (data.event) {
-      case 'init': {
-        const objectURL = this.workerContext?.objectURL;
-        if (objectURL) {
-          // revoke the Object URL that was used to create transmuxer worker, so as not to leak it
-          self.URL.revokeObjectURL(objectURL);
-        }
-        break;
-      }
-
-      case 'transmuxComplete': {
-        this.handleTransmuxComplete(data.data);
-        break;
-      }
-
-      case 'flush': {
-        this.onFlush(data.data);
-        break;
-      }
-
-      // pass logs from the worker thread to the main logger
-      case 'workerLog': {
-        if (hls.logger[data.data.logType]) {
-          hls.logger[data.data.logType](data.data.message);
-        }
-        break;
-      }
-
-      default: {
-        data.data = data.data || {};
-        data.data.frag = this.frag;
-        data.data.part = this.part;
-        data.data.id = this.id;
-        hls.trigger(data.event as keyof HlsListeners, data.data);
-        break;
-      }
-    }
-  };
-
-  private onWorkerError = (event) => {
-    if (!this.hls) {
-      return;
-    }
-    const error = new Error(
-      `${event.message}  (${event.filename}:${event.lineno})`,
-    );
-    this.hls.config.enableWorker = false;
-    this.hls.logger.warn(
-      `Error in "${this.id}" Web Worker, fallback to inline`,
-    );
-    this.hls.trigger(Events.ERROR, {
-      type: ErrorTypes.OTHER_ERROR,
-      details: ErrorDetails.INTERNAL_EXCEPTION,
-      fatal: false,
-      event: 'demuxerWorker',
-      error,
-    });
-  };
 
   private configureTransmuxer(config: TransmuxConfig) {
     const { instanceNo, transmuxer } = this;

@@ -5,6 +5,7 @@ import type { videoOnlyInitSegment } from './mp4-iframes';
 import type * as VariableSubstitution from './variable-substitution';
 import type * as MediaTransfer from '../controller/media-transfer';
 import type Decrypter from '../crypt/decrypter';
+import type * as TransmuxWorkerClient from '../demux/transmuxer-worker-client';
 import type { loadKeyHTTP } from '../loader/key-loader-http';
 import type { remuxIFrameFragment } from '../remux/passthrough-iframes';
 
@@ -13,6 +14,10 @@ import type { remuxIFrameFragment } from '../remux/passthrough-iframes';
 export const featureHooks: {
   variableSubstitution?: typeof VariableSubstitution;
   decrypter?: typeof Decrypter;
+  transmuxWorker?: Pick<
+    typeof TransmuxWorkerClient,
+    'canStart' | 'start' | 'terminate'
+  >;
   mediaTransfer?: typeof MediaTransfer;
   loadKeyHTTP?: typeof loadKeyHTTP;
   emsg?: { extractEmsgSamples: typeof extractEmsgSamples };
