@@ -23,6 +23,11 @@
       "import": "./dist/hls.light.mjs",
       "require": "./dist/hls.light.js"
     },
+    "./auto": {
+      "types": "./dist/hls.auto.d.ts",
+      "import": "./dist/hls.auto.min.mjs",
+      "require": "./dist/hls.auto.min.js"
+    },
     "./core": {
       "import": "./dist/core/core.mjs"
     },
@@ -41,10 +46,10 @@
   },
   "scripts": {
     "build": "rollup --config && npm run build:types",
-    "build:ci": "rollup --config && tsc --build tsconfig-lib.json && api-extractor run && npm run build:copy-types && es-check",
+    "build:ci": "rollup --config && tsc --build tsconfig-lib.json && api-extractor run && npm run build:copy-types && node ./scripts/build-auto-types.js && es-check",
     "build:debug": "rollup --config --configType full --configType demo",
     "build:watch": "rollup --config --configType full --configType demo --watch",
-    "build:types": "tsc --build tsconfig-lib.json && api-extractor run --local && npm run build:copy-types",
+    "build:types": "tsc --build tsconfig-lib.json && api-extractor run --local && npm run build:copy-types && node ./scripts/build-auto-types.js",
     "build:copy-types": "cp ./dist/hls.d.ts ./dist/hls.d.mts && cp ./dist/hls.d.ts ./dist/hls.js.d.ts",
     "dev": "run-p build:watch serve",
     "serve": "http-server -o /demo .",

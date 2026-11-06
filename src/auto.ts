@@ -11,29 +11,31 @@
  * without them, and a transpiled subclass of the bundle's native loader class
  * would throw.
  */
-import type { HlsConfig, PlaylistLoaderConstructor } from './config';
-import type Hls from './hls';
+import type {
+  AutoFeature,
+  AutoOptions,
+  AutoPlaylist,
+  DetectedFeatures,
+  LoadedHls,
+} from './auto-types';
+import type { PlaylistLoaderConstructor } from './config';
+import type codes from './features/codes.json';
 import type {
   Loader,
   LoaderCallbacks,
   LoaderConfiguration,
   LoaderContext,
 } from './types/loader';
+import type Hls from 'hls.js';
+import type { HlsConfig } from 'hls.js';
 
-export type AutoOptions = {
-  // Bundle server base URL; defaults to where this loader was loaded from.
-  cdn?: string;
-  // Features to include regardless of the stream (names from /features).
-  features?: string[];
-  // Use the browser's HLS playback when available (default true).
-  native?: boolean;
-  config?: Partial<HlsConfig>;
-};
+// Both fail to compile when AutoFeature and src/features/codes.json disagree.
+const CODES: Record<AutoFeature, string> = __FEATURE_CODES__ as typeof codes;
+const ORDER: AutoFeature[] = Object.keys(CODES) as (keyof typeof codes)[];
 
 type HlsClass = typeof Hls;
-type Playlist = { url: string; text: string };
+type Playlist = AutoPlaylist;
 
-const ORDER = Object.keys(__FEATURE_CODES__);
 const ATTRIBUTE = /([A-Z0-9-]+)=("[^"]*"|[^,]*)/g;
 
 function attributes(line: string): Record<string, string> {
@@ -139,8 +141,8 @@ const absolute = (url: string, base?: string) =>
 export function detectFeatures(
   src: string,
   options: AutoOptions = {},
-): Promise<{ features: string[]; playlists: Map<string, Playlist> }> {
-  const found = new Set(options.features || []);
+): Promise<DetectedFeatures> {
+  const found = new Set<string>(options.features || []);
   const playlists = new Map<string, Playlist>();
   scanConfig(options.config || {}, found);
   const mainUrl = absolute(src);
@@ -256,16 +258,9 @@ export function createAuto(defaultCdn: string, format: 'esm' | 'iife') {
    * The Hls class for `src` from the bundle server, with a config that
    * reuses the playlists fetched during detection.
    */
-  function loadHls(
-    src: string,
-    options: AutoOptions = {},
-  ): Promise<{
-    Hls: HlsClass;
-    features: string[];
-    config: Partial<HlsConfig>;
-  }> {
+  function loadHls(src: string, options: AutoOptions = {}): Promise<LoadedHls> {
     return detectFeatures(src, options).then(({ features, playlists }) => {
-      const codes = features.map((feature) => __FEATURE_CODES__[feature]);
+      const codes = features.map((feature) => CODES[feature]);
       const base = (options.cdn || defaultCdn).replace(/\/?$/, '/');
       const name = `hls-${codes.join('-') || 'core'}.min.${format === 'esm' ? 'mjs' : 'js'}`;
       return loadBundle(base + name).then((HlsBundle) => {

@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { detectFeatures } from '../../src/auto';
-import type { AutoOptions } from '../../src/auto';
+import type { AutoOptions } from '../../src/auto-types';
 
 const BASE = 'https://cdn.test/stream/';
 const fmp4Vod = `#EXTM3U

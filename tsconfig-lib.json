@@ -12,6 +12,8 @@
     "lib": ["dom", "es2015"],
     "outDir": "./lib/",
     "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "paths": { "hls.js": ["./src/hls.ts"] },
     "emitDeclarationOnly": true,
     "incremental": true,
     "tsBuildInfoFile": "cache.tsbuildinfo"

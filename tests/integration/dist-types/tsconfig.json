@@ -10,8 +10,9 @@
     "noEmit": true,
     "paths": {
       "hls.js": ["../../../dist/hls.d.ts"],
+      "hls.js/auto": ["../../../dist/hls.auto.d.ts"],
       "*": ["./no-external-modules.ts"]
     }
   },
-  "files": ["index.ts"]
+  "files": ["index.ts", "auto.ts"]
 }

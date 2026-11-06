@@ -2524,6 +2524,11 @@ export type HlsConfig = {
     gapController?: typeof GapController;
     latencyController?: typeof LatencyController;
     interstitialsController?: typeof InterstitialsController;
+    mediaDecodingInfo?: {
+        requiresMediaCapabilitiesDecodingInfo: typeof requiresMediaCapabilitiesDecodingInfo;
+        getMediaDecodingInfoPromise: typeof getMediaDecodingInfoPromise;
+    };
+    muxers?: MuxConfig[];
     enableInterstitialPlayback: boolean;
     interstitialAppendInPlace: boolean;
     interstitialLiveLookAhead: number;
@@ -3691,11 +3696,20 @@ export class LevelKey implements DecryptData {
     // (undocumented)
     static clearKeyUriToKeyIdMap(): void;
     // (undocumented)
+    static drm?: {
+        isSupported(key: LevelKey): boolean;
+        getDecryptData(key: LevelKey, levelKeys?: {
+            [key: string]: LevelKey | undefined;
+        }): LevelKey;
+    };
+    // (undocumented)
     readonly encrypted: boolean;
     // (undocumented)
     getDecryptData(sn: number | 'initSegment', levelKeys?: {
         [key: string]: LevelKey | undefined;
     }): LevelKey | null;
+    // (undocumented)
+    static getKeyIdForUri(uri: string): Uint8Array<ArrayBuffer> | undefined;
     // (undocumented)
     readonly isCommonEncryption: boolean;
     // (undocumented)
@@ -5230,7 +5244,7 @@ export class TimelineController implements ComponentAPI {
 //
 // @public (undocumented)
 export type TimelineControllerConfig = {
-    cueHandler: CuesInterface;
+    cueHandler?: CuesInterface;
     enableWebVTT: boolean;
     enableIMSC1: boolean;
     enableCEA708Captions: boolean;
@@ -5440,11 +5454,14 @@ export class XhrLoader extends BaseLoader {
 
 // Warnings were encountered during analysis:
 //
-// src/config.ts:92:3 - (ae-forgotten-export) The symbol "CmcdCustomKey" needs to be exported by the entry point hls.d.ts
-// src/config.ts:92:3 - (ae-forgotten-export) The symbol "CmcdCustomValue" needs to be exported by the entry point hls.d.ts
-// src/config.ts:104:3 - (ae-forgotten-export) The symbol "CmcdKey" needs to be exported by the entry point hls.d.ts
-// src/config.ts:105:3 - (ae-forgotten-export) The symbol "CmcdVersion" needs to be exported by the entry point hls.d.ts
-// src/config.ts:107:3 - (ae-forgotten-export) The symbol "CmcdEventReportConfig" needs to be exported by the entry point hls.d.ts
+// src/config.ts:95:3 - (ae-forgotten-export) The symbol "CmcdCustomKey" needs to be exported by the entry point hls.d.ts
+// src/config.ts:95:3 - (ae-forgotten-export) The symbol "CmcdCustomValue" needs to be exported by the entry point hls.d.ts
+// src/config.ts:107:3 - (ae-forgotten-export) The symbol "CmcdKey" needs to be exported by the entry point hls.d.ts
+// src/config.ts:108:3 - (ae-forgotten-export) The symbol "CmcdVersion" needs to be exported by the entry point hls.d.ts
+// src/config.ts:110:3 - (ae-forgotten-export) The symbol "CmcdEventReportConfig" needs to be exported by the entry point hls.d.ts
+// src/config.ts:394:5 - (ae-forgotten-export) The symbol "requiresMediaCapabilitiesDecodingInfo" needs to be exported by the entry point hls.d.ts
+// src/config.ts:395:5 - (ae-forgotten-export) The symbol "getMediaDecodingInfoPromise" needs to be exported by the entry point hls.d.ts
+// src/config.ts:398:3 - (ae-forgotten-export) The symbol "MuxConfig" needs to be exported by the entry point hls.d.ts
 
 // (No @packageDocumentation comment for this package)
 

@@ -1,5 +1,13 @@
 import { createAuto } from './auto';
 
+export type {
+  AutoFeature,
+  AutoOptions,
+  AutoPlaylist,
+  DetectedFeatures,
+  LoadedHls,
+} from './auto-types';
+
 // Captured while this classic script runs; it is null once loading finishes.
 const script = self.document?.currentScript as HTMLScriptElement | null;
 
