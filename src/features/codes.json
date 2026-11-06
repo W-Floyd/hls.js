@@ -1,0 +1,16 @@
+{
+  "mpeg-ts": "ts",
+  "subtitles": "subs",
+  "alt-audio": "audio",
+  "eme-drm": "drm",
+  "cmcd": "cmcd",
+  "interstitials": "ads",
+  "content-steering": "steering",
+  "iframes": "iframes",
+  "metadata": "id3",
+  "latency": "latency",
+  "cap-level": "caplevel",
+  "fps": "fps",
+  "media-capabilities": "mcap",
+  "variable-substitution": "vars"
+}

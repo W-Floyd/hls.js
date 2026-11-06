@@ -1,4 +1,6 @@
 declare const __VERSION__: string;
+// src/features/codes.json: feature module name -> bundle file-name code
+declare const __FEATURE_CODES__: Record<string, string>;
 
 // Dynamic Modules
 declare const __USE_ALT_AUDIO__: boolean;

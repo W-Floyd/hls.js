@@ -4,35 +4,25 @@
 'use strict';
 
 /**
- * Bundles the precompiled split build (dist/core.min) into one file holding
- * core plus the named features, installed as Hls.DefaultConfig. No
- * transpilation happens here, so any combination takes milliseconds.
+ * Bundles the split build (dist/core) into one file holding core plus the named
+ * features, installed as Hls.DefaultConfig. It starts from the unminified
+ * chunks and minifies the whole bundle once, landing within ~1% of a
+ * flag-compiled build. esbuild does syntax/whitespace minification and swc
+ * mangles names: esbuild's own mangling left bundles ~3% larger, and terser's
+ * matched swc's size at ~5x the time (~90 ms total here).
  *
  *   node scripts/bundle-features.js [--format esm|iife] [--out file] feature...
  */
 
+const fs = require('fs');
 const path = require('path');
 const esbuild = require('esbuild');
+const swc = require('@swc/core');
 
-const SPLIT = path.resolve(__dirname, '..', 'dist', 'core.min');
+const SPLIT = path.resolve(__dirname, '..', 'dist', 'core');
 
 // Bundle file names list feature codes in this order: hls-ts-subs.min.mjs.
-const featureCodes = {
-  'mpeg-ts': 'ts',
-  subtitles: 'subs',
-  'alt-audio': 'audio',
-  'eme-drm': 'drm',
-  cmcd: 'cmcd',
-  interstitials: 'ads',
-  'content-steering': 'steering',
-  iframes: 'iframes',
-  metadata: 'id3',
-  latency: 'latency',
-  'cap-level': 'caplevel',
-  fps: 'fps',
-  'media-capabilities': 'mcap',
-  'variable-substitution': 'vars',
-};
+const featureCodes = require('../src/features/codes.json');
 const BUNDLE_NAME = /^hls-([a-z0-9-]+)\.min\.(m?js)$/;
 
 /**
@@ -62,7 +52,8 @@ const bundleName = (features) =>
 const toIdentifier = (feature) =>
   feature.replace(/-(\w)/g, (_, letter) => letter.toUpperCase());
 
-function bundleFeatures({ features, format = 'esm', outfile, write = true }) {
+// `fast` skips swc: esbuild's own mangling, ~30 ms but ~3% larger.
+async function bundleFeatures({ features, format = 'esm', outfile, fast }) {
   const contents = [
     `import Hls from './core.mjs';`,
     ...features.map(
@@ -75,16 +66,30 @@ function bundleFeatures({ features, format = 'esm', outfile, write = true }) {
     format === 'esm' ? 'export default Hls;' : 'self.Hls = Hls;',
   ].join('\n');
 
-  return esbuild.build({
+  const result = await esbuild.build({
     stdin: { contents, resolveDir: SPLIT, loader: 'js' },
     bundle: true,
-    minify: true,
     format,
     target: 'es2017',
-    outfile,
-    write,
+    write: false,
+    minify: !!fast,
+    minifySyntax: true,
+    minifyWhitespace: true,
     legalComments: 'none',
   });
+  const { code } = fast
+    ? { code: result.outputFiles[0].text }
+    : await swc.minify(result.outputFiles[0].text, {
+        ecma: 2017,
+        module: format === 'esm',
+        compress: false,
+        mangle: true,
+      });
+  if (outfile) {
+    await fs.promises.mkdir(path.dirname(outfile), { recursive: true });
+    await fs.promises.writeFile(outfile, code);
+  }
+  return code;
 }
 
 module.exports = { bundleFeatures, featureCodes, parseBundleName };

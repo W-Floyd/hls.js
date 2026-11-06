@@ -5,13 +5,15 @@
 
 /**
  * Serves single-file hls.js bundles for any feature combination, assembled on
- * first request from the split build (dist/core.min) and cached on disk with
+ * first request from the split build (dist/core) and cached on disk with
  * brotli and gzip variants.
  *
  *   GET /hls-<codes>.min.mjs   ES module, e.g. /hls-ts-subs.min.mjs
  *   GET /hls-<codes>.min.js    classic script setting self.Hls
  *   GET /hls-core.min.mjs      no optional features
  *   GET /features              feature names and their codes
+ *   GET /hls-auto.min.mjs      loader that picks a bundle per stream (src/auto.ts);
+ *   GET /hls-auto.min.js       classic-script form, global HlsAuto
  *
  * Env: PORT (8080), CACHE_DIR (os tmpdir), CACHE_CONTROL (public, max-age=3600),
  * CACHE_PRUNE_AFTER_HOURS (24), CACHE_MAX_SIZE (1G; bytes, or e.g. 500M, 2G; 0 for unbounded)
@@ -32,10 +34,15 @@ const {
 
 const PORT = Number(process.env.PORT) || 8080;
 const CACHE_CONTROL = process.env.CACHE_CONTROL || 'public, max-age=3600';
-const SPLIT = path.resolve(__dirname, '..', 'dist', 'core.min');
+const SPLIT = path.resolve(__dirname, '..', 'dist', 'core');
+// The auto loader (src/auto.ts), served as-is.
+const LOADERS = {
+  'hls-auto.min.mjs': path.resolve(__dirname, '..', 'dist', 'hls.auto.min.mjs'),
+  'hls-auto.min.js': path.resolve(__dirname, '..', 'dist', 'hls.auto.min.js'),
+};
 
 // Hash of everything that shapes a response: the split build, the bundler, its
-// esbuild version and this server. Any change gets a fresh cache directory and
+// esbuild and swc versions and this server. Any change gets a fresh cache directory and
 // new ETags, so neither the disk cache nor HTTP caches serve stale bundles.
 const BUILD_ID = (() => {
   const hash = crypto.createHash('sha256');
@@ -52,7 +59,9 @@ const BUILD_ID = (() => {
   walk(SPLIT);
   hash.update(fs.readFileSync(require.resolve('../scripts/bundle-features')));
   hash.update(fs.readFileSync(__filename));
+  Object.values(LOADERS).forEach((file) => hash.update(fs.readFileSync(file)));
   hash.update(require('esbuild').version);
+  hash.update(require('@swc/core/package.json').version);
   return hash.digest('hex').slice(0, 16);
 })();
 const CACHE_ROOT =
@@ -82,25 +91,34 @@ require('timers')
   .setInterval(pruneStaleBuilds, 60 * 60 * 1000)
   .unref();
 
-const ENCODINGS = [
-  ['br', '.br'],
-  ['gzip', '.gz'],
-  ['identity', ''],
-];
-// Async zlib runs on the libuv pool, so a slow brotli pass doesn't block
-// requests for bundles that are already cached.
+// No request waits on slow work. A new bundle is first served from a fast
+// build (esbuild alone, ~30 ms, ~3% larger) with quality-9 brotli (~20 ms,
+// ~8% larger than quality 11). The optimized build (swc mangling) and its
+// quality-11 brotli are made in the background and replace the fast files,
+// so later requests get the smaller ones. Every file has its own ETag.
+const FAST = '.fast';
+const brotli = (quality) => (source) =>
+  promisify(zlib.brotliCompress)(source, {
+    params: {
+      [zlib.constants.BROTLI_PARAM_QUALITY]: quality,
+      [zlib.constants.BROTLI_PARAM_SIZE_HINT]: source.length,
+    },
+  });
+// Async zlib runs on the libuv pool, so compression doesn't block requests.
 const compressors = {
   '.gz': (source) =>
     promisify(zlib.gzip)(source, { level: zlib.constants.Z_BEST_COMPRESSION }),
-  '.br': (source) =>
-    promisify(zlib.brotliCompress)(source, {
-      params: {
-        [zlib.constants.BROTLI_PARAM_QUALITY]:
-          zlib.constants.BROTLI_MAX_QUALITY,
-        [zlib.constants.BROTLI_PARAM_SIZE_HINT]: source.length,
-      },
-    }),
+  '.br9': brotli(9),
+  '.br': brotli(zlib.constants.BROTLI_MAX_QUALITY),
 };
+const VARIANTS = ['', ...Object.keys(compressors)];
+const ALL_SUFFIXES = VARIANTS.concat(VARIANTS.map((suffix) => FAST + suffix));
+// Accept-Encoding token -> stored variants, best first.
+const ENCODINGS = [
+  ['br', ['.br', '.br9']],
+  ['gzip', ['.gz']],
+  ['identity', ['']],
+];
 // Keyed by cache file path; deduplicates concurrent work on the same file.
 const inflight = new Map();
 
@@ -117,11 +135,12 @@ function parseSize(value) {
 // 0 means unbounded.
 const MAX_BYTES = parseSize(process.env.CACHE_MAX_SIZE || '1G') || Infinity;
 
-// Per bundle (all encodings): bytes on disk and when last served. Seeded from
-// this build's directory; other builds' are left to pruneStaleBuilds.
+// Per bundle (all files): bytes on disk and when last served. Seeded from this
+// build's directory; other builds' are left to pruneStaleBuilds.
 const usage = new Map();
 let totalBytes = 0;
-const bundleOf = (file) => path.basename(file).replace(/\.(br|gz)$/, '');
+const bundleOf = (file) =>
+  path.basename(file).replace(/(\.fast)?(\.br9?|\.gz)?$/, '');
 
 function track(file, bytes, used = Date.now()) {
   const name = bundleOf(file);
@@ -130,6 +149,15 @@ function track(file, bytes, used = Date.now()) {
   entry.used = Math.max(entry.used, used);
   usage.set(name, entry);
   totalBytes += bytes;
+}
+
+async function remove(file) {
+  const stat = await fs.promises.stat(file).catch(() => null);
+  if (!stat) return;
+  await fs.promises.rm(file, { force: true });
+  const entry = usage.get(bundleOf(file));
+  if (entry) entry.bytes -= stat.size;
+  totalBytes -= stat.size;
 }
 
 fs.readdirSync(CACHE_DIR).forEach((file) => {
@@ -151,7 +179,7 @@ function evict(keep) {
     .sort((a, b) => a[1].used - b[1].used);
   candidates.some(([name, { bytes }]) => {
     if (totalBytes <= MAX_BYTES) return true;
-    ['', '.br', '.gz'].forEach((suffix) =>
+    ALL_SUFFIXES.forEach((suffix) =>
       fs.rmSync(path.join(CACHE_DIR, name + suffix), { force: true }),
     );
     usage.delete(name);
@@ -181,35 +209,45 @@ function once(file, create) {
   return pending;
 }
 
-// Writes the uncompressed bundle, then starts compressing it in the background
-// so identity requests are served without waiting on compression.
-function ensureSource(name, { features, format }) {
-  const file = path.join(CACHE_DIR, name);
+const background = (label, promise) =>
+  promise.catch((error) => console.error(`failed ${label}:`, error));
+
+// `tier` is '' (optimized) or FAST.
+function ensureBuild(name, { features, format }, tier) {
+  const file = path.join(CACHE_DIR, name + tier);
+  // Never recreate a fast build once the optimized one exists; the caller's
+  // read then fails and it retries with the optimized file.
+  if (tier && fs.existsSync(path.join(CACHE_DIR, name))) {
+    return Promise.resolve();
+  }
   return once(file, async () => {
     const start = Date.now();
-    const result = await bundleFeatures({ features, format, write: false });
-    const source = Buffer.from(result.outputFiles[0].contents);
-    await writeAtomic(file, source);
+    const code = await bundleFeatures({ features, format, fast: !!tier });
+    await writeAtomic(file, Buffer.from(code));
     console.log(
-      `generated ${name} (${features.join(', ') || 'core'}) in ${Date.now() - start} ms`,
+      `generated ${name + tier} (${features.join(', ') || 'core'}) in ${Date.now() - start} ms`,
     );
-    Object.keys(compressors).forEach((suffix) =>
-      ensureVariant(name, suffix, source).catch((error) =>
-        console.error(`failed ${name}${suffix}:`, error),
-      ),
-    );
+    if (!tier) {
+      // The optimized build supersedes the fast one.
+      await Promise.all(
+        VARIANTS.map((suffix) =>
+          remove(path.join(CACHE_DIR, name + FAST + suffix)),
+        ),
+      );
+      background(`${name}.br`, ensureVariant(name, '.br'));
+    }
   });
 }
 
-// Also recovers variants missing from disk, e.g. after a restart mid-compress.
-function ensureVariant(name, suffix, source) {
-  const file = path.join(CACHE_DIR, name);
+function ensureVariant(base, suffix) {
+  const file = path.join(CACHE_DIR, base);
   if (!suffix) return Promise.resolve();
   return once(`${file}${suffix}`, async () => {
-    const data = await compressors[suffix](
-      source || (await fs.promises.readFile(file)),
+    await writeAtomic(
+      `${file}${suffix}`,
+      await compressors[suffix](await fs.promises.readFile(file)),
     );
-    await writeAtomic(`${file}${suffix}`, data);
+    if (suffix === '.br') await remove(`${file}.br9`);
   });
 }
 
@@ -222,13 +260,80 @@ function send(res, status, body, headers = {}) {
   res.end(body);
 }
 
+// The best file available now, kicking off background work for better ones.
+function select(name, parsed, candidates) {
+  const exists = (file) => fs.existsSync(path.join(CACHE_DIR, file));
+  if (!exists(name)) {
+    background(name, ensureBuild(name, parsed, ''));
+    return `${name}${FAST}${candidates[candidates.length - 1]}`;
+  }
+  const ready = candidates.find((suffix) => exists(name + suffix));
+  if (candidates[0] === '.br' && ready !== '.br') {
+    background(`${name}.br`, ensureVariant(name, '.br'));
+  }
+  return name + (ready ?? candidates[candidates.length - 1]);
+}
+
 async function serveBundle(req, res, name, parsed) {
   const accepted = String(req.headers['accept-encoding'] || '');
-  const [encoding, suffix] = ENCODINGS.find(
+  const [encoding, candidates] = ENCODINGS.find(
     ([token]) => token === 'identity' || accepted.includes(token),
   );
-  // Each encoding is a distinct representation, so its own validator.
-  const etag = `"${BUILD_ID}-${name}${suffix}"`;
+  let file = select(name, parsed, candidates);
+  // Each stored file is a distinct representation, so its own validator.
+  const etagFor = (stored) => `"${BUILD_ID}-${stored}"`;
+  const headers = {
+    'Content-Type': 'text/javascript; charset=utf-8',
+    'Cache-Control': CACHE_CONTROL,
+    Vary: 'Accept-Encoding',
+  };
+  if (req.headers['if-none-match'] === etagFor(file)) {
+    send(res, 304, null, { ...headers, ETag: etagFor(file) });
+    return;
+  }
+  // Retried once in case the file is evicted or superseded between being
+  // ensured and read.
+  let body;
+  for (let attempt = 0; !body; attempt++) {
+    if (attempt) file = select(name, parsed, candidates);
+    const tier = file.startsWith(name + FAST) ? FAST : '';
+    await ensureBuild(name, parsed, tier);
+    await ensureVariant(name + tier, file.slice((name + tier).length));
+    try {
+      body = await fs.promises.readFile(path.join(CACHE_DIR, file));
+    } catch (error) {
+      if (error.code !== 'ENOENT' || attempt) throw error;
+    }
+  }
+  headers.ETag = etagFor(file);
+  const entry = usage.get(name);
+  if (entry) entry.used = Date.now();
+  if (encoding !== 'identity') headers['Content-Encoding'] = encoding;
+  headers['Content-Length'] = body.length;
+  send(res, 200, req.method === 'HEAD' ? null : body, headers);
+}
+
+// Small and fixed per build: compressed once at startup, served from memory.
+const loaderBodies = Object.fromEntries(
+  Object.entries(LOADERS).map(([name, file]) => {
+    const source = fs.readFileSync(file);
+    return [
+      name,
+      {
+        br: zlib.brotliCompressSync(source),
+        gzip: zlib.gzipSync(source, {
+          level: zlib.constants.Z_BEST_COMPRESSION,
+        }),
+        identity: source,
+      },
+    ];
+  }),
+);
+
+function serveLoader(req, res, name) {
+  const accepted = String(req.headers['accept-encoding'] || '');
+  const encoding = ['br', 'gzip'].find((token) => accepted.includes(token));
+  const etag = `"${BUILD_ID}-${name}-${encoding || 'identity'}"`;
   const headers = {
     'Content-Type': 'text/javascript; charset=utf-8',
     'Cache-Control': CACHE_CONTROL,
@@ -239,22 +344,8 @@ async function serveBundle(req, res, name, parsed) {
     send(res, 304, null, headers);
     return;
   }
-  // Brotli clients wait for brotli rather than get gzip, which a shared cache
-  // in front would then keep serving them. Retried once in case the bundle is
-  // evicted between being ensured and read.
-  let body;
-  for (let attempt = 0; !body; attempt++) {
-    await ensureSource(name, parsed);
-    await ensureVariant(name, suffix);
-    try {
-      body = await fs.promises.readFile(path.join(CACHE_DIR, name) + suffix);
-    } catch (error) {
-      if (error.code !== 'ENOENT' || attempt) throw error;
-    }
-  }
-  const entry = usage.get(name);
-  if (entry) entry.used = Date.now();
-  if (encoding !== 'identity') headers['Content-Encoding'] = encoding;
+  const body = loaderBodies[name][encoding || 'identity'];
+  if (encoding) headers['Content-Encoding'] = encoding;
   headers['Content-Length'] = body.length;
   send(res, 200, req.method === 'HEAD' ? null : body, headers);
 }
@@ -268,6 +359,10 @@ const server = http.createServer((req, res) => {
   const name = pathname.slice(1);
   if (name === 'healthz') {
     send(res, 200, 'ok\n');
+    return;
+  }
+  if (LOADERS[name]) {
+    serveLoader(req, res, name);
     return;
   }
   if (name === 'features') {
@@ -294,6 +389,15 @@ const server = http.createServer((req, res) => {
     send(res, 500, 'Bundle generation failed\n');
   });
 });
+
+// Starts the esbuild service and loads swc so the first request doesn't pay
+// for it (~40 ms).
+background(
+  'warm-up',
+  bundleFeatures({ features: [], fast: true }).then(() =>
+    bundleFeatures({ features: [] }),
+  ),
+);
 
 server.listen(PORT, () =>
   console.log(`serving build ${BUILD_ID} on :${PORT}, cache ${CACHE_DIR}`),

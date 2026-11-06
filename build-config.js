@@ -9,6 +9,8 @@ const terser = require('@rollup/plugin-terser');
 const istanbul = require('rollup-plugin-istanbul');
 const fs = require('fs');
 
+const featureCodes = require('./src/features/codes.json');
+
 const pkgJson = JSON.parse(
   fs.readFileSync('./package.json', { encoding: 'utf-8' }),
 );
@@ -113,6 +115,11 @@ const buildConstants = (
     __USE_MEDIA_CAPABILITIES__: JSON.stringify(features.mediaCapabilities),
     __USE_INTERSTITIALS__: JSON.stringify(features.interstitials),
     __USE_IFRAMES__: JSON.stringify(features.iframes),
+    // Single quotes: coverage instrumentation embeds this source unescaped in
+    // a double-quoted string.
+    __FEATURE_CODES__: `({${Object.entries(featureCodes)
+      .map(([feature, code]) => `'${feature}':'${code}'`)
+      .join(',')}})`,
     __USE_MPEG_TS__: JSON.stringify(features.mpegTs),
     __USE_CAP_LEVEL__: JSON.stringify(features.capLevel),
     __USE_FPS__: JSON.stringify(features.fps),
@@ -438,22 +445,7 @@ const buildRollupConfig = ({
   };
 };
 
-const coreFeatures = [
-  'alt-audio',
-  'cap-level',
-  'cmcd',
-  'content-steering',
-  'eme-drm',
-  'fps',
-  'iframes',
-  'interstitials',
-  'latency',
-  'media-capabilities',
-  'metadata',
-  'mpeg-ts',
-  'subtitles',
-  'variable-substitution',
-];
+const coreFeatures = Object.keys(featureCodes);
 
 // Code-split ESM: `core` plus one entry per feature. Feature code is compiled
 // in (full flags) but only reaches a client that imports its entry.
@@ -494,6 +486,22 @@ const buildCoreRollupConfig = ({ minified }) => {
         return coreModules.has(id) ? 'core' : undefined;
       },
     },
+  };
+};
+
+// Bundle-server loader (src/auto.ts): picks and loads a bundle per stream.
+const buildAutoRollupConfig = (format) => {
+  const esm = format === FORMAT.esm;
+  const base = buildRollupConfig({
+    type: BUILD_TYPE.full,
+    format,
+    minified: true,
+    input: esm ? './src/exports-auto.ts' : './src/exports-auto-umd.ts',
+    outputName: 'hls.auto',
+  });
+  return {
+    ...base,
+    output: { ...base.output, name: 'HlsAuto', banner: null, footer: null },
   };
 };
 
@@ -544,6 +552,8 @@ const configs = Object.entries({
   }),
   core: buildCoreRollupConfig({ minified: false }),
   coreMin: buildCoreRollupConfig({ minified: true }),
+  autoEsm: buildAutoRollupConfig(FORMAT.esm),
+  autoUmd: buildAutoRollupConfig(FORMAT.umd),
   worker: {
     input: './src/demux/transmuxer-worker.ts',
     onLog: buildOnLog(),
