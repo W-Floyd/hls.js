@@ -235,6 +235,11 @@ export default class ErrorController
           ErrorActionFlags.ResetMediaSource | ErrorActionFlags.SwitchToSDR;
         return;
       case ErrorDetails.INTERNAL_EXCEPTION:
+        // Stream controllers rebuild a crashed transmuxer only with recovery.
+        if (!__USE_RECOVERY__ && data.event === 'demuxerWorker') {
+          data.fatal = true;
+        }
+      // falls through
       case ErrorDetails.BUFFER_APPENDING_ERROR:
       case ErrorDetails.BUFFER_APPEND_NO_PROGRESS:
       case ErrorDetails.BUFFER_FULL_ERROR:
@@ -257,6 +262,9 @@ export default class ErrorController
     data: ErrorData,
     levelIndex: number | null | undefined,
   ): IErrorAction {
+    if (!__USE_RECOVERY__) {
+      return createFatalErrorAction();
+    }
     const hls = this.hls;
     const retryConfig = getRetryConfig(hls.config.playlistLoadPolicy, data);
     const retryCount = this.playlistError++;
@@ -283,6 +291,9 @@ export default class ErrorController
   }
 
   private getFragRetryOrSwitchAction(data: ErrorData): IErrorAction {
+    if (!__USE_RECOVERY__) {
+      return createFatalErrorAction();
+    }
     const hls = this.hls;
     // Share fragment error count accross media options (main, audio, subs)
     // This allows for level based rendition switching when media option assets fail
@@ -334,6 +345,9 @@ export default class ErrorController
     data: ErrorData,
     levelIndex: number | null | undefined,
   ): IErrorAction {
+    if (!__USE_RECOVERY__) {
+      return createFatalErrorAction();
+    }
     const hls = this.hls;
     if (levelIndex === null || levelIndex === undefined) {
       levelIndex = hls.loadLevel;
@@ -576,6 +590,14 @@ function isAppendStateRelated(data: ErrorData): boolean {
     (data.error.name === 'QuotaExceededError' ||
       data.error.name === 'InvalidStateError')
   );
+}
+
+// Unresolved with no retry config: onErrorOut makes it fatal.
+function createFatalErrorAction(): IErrorAction {
+  return {
+    action: NetworkErrorAction.SendAlternateToPenaltyBox,
+    flags: ErrorActionFlags.None,
+  };
 }
 
 export function createDoNothingErrorAction(resolved?: boolean): IErrorAction {

@@ -410,6 +410,9 @@ export default class BasePlaylistController
   }
 
   protected checkRetry(errorEvent: ErrorData): boolean {
+    if (!__USE_RECOVERY__) {
+      return false;
+    }
     const errorDetails = errorEvent.details;
     const isTimeout = isTimeoutError(errorEvent);
     const errorAction = errorEvent.errorAction;

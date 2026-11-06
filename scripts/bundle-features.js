@@ -11,7 +11,7 @@
  * mangles names: esbuild's own mangling left bundles ~3% larger, and terser's
  * matched swc's size at ~5x the time (~90 ms total here).
  *
- *   node scripts/bundle-features.js [--format esm|iife] [--out file] feature...
+ *   node scripts/bundle-features.js [--format esm|iife] [--out file] [--no-logs] feature|preset...
  */
 
 const fs = require('fs');
@@ -19,30 +19,46 @@ const path = require('path');
 const esbuild = require('esbuild');
 const swc = require('@swc/core');
 
-const SPLIT = path.resolve(__dirname, '..', 'dist', 'core');
+// Split builds: with logs, and log-stripped (rollup configType coreNoLogs).
+const splitDir = (logs) =>
+  path.resolve(__dirname, '..', 'dist', logs ? 'core' : 'core-nolog');
 
 // Bundle file names list feature codes in this order: hls-ts-subs.min.mjs.
 const featureCodes = require('../src/features/codes.json');
-const BUNDLE_NAME = /^hls-([a-z0-9-]+)\.min\.(m?js)$/;
+const presets = require('../src/features/presets.json');
+
+// A preset by name (`full` is every feature, with logs), else undefined.
+const getPreset = (name) =>
+  name === 'full' ? { features: Object.keys(featureCodes) } : presets[name];
+// `.nolog` marks a bundle assembled from the log-stripped split build.
+const BUNDLE_NAME = /^hls-([a-z0-9-]+)(\.nolog)?\.min\.(m?js)$/;
 
 /**
- * Parses a bundle file name into its features and format. `canonical` is the
- * name with codes in standard order; undefined when a code is unknown or
- * repeated.
+ * Parses a bundle file name into its features, format and logs. `canonical` is
+ * the name with codes in standard order (a preset name resolves to its codes,
+ * plus `.nolog` when the preset strips logs); undefined when a code is unknown
+ * or repeated.
  */
 function parseBundleName(name) {
   const match = BUNDLE_NAME.exec(name);
   if (!match) return null;
-  const codes = match[1] === 'core' ? [] : match[1].split('-');
+  const preset = getPreset(match[1]);
+  const codes = preset
+    ? preset.features.map((feature) => featureCodes[feature])
+    : match[1] === 'core'
+      ? []
+      : match[1].split('-');
   const features = Object.keys(featureCodes).filter((feature) =>
     codes.includes(featureCodes[feature]),
   );
   if (features.length !== codes.length) return null;
-  const extension = match[2];
+  const logs = !match[2] && preset?.logs !== false;
+  const extension = match[3];
   return {
     features,
+    logs,
     format: extension === 'mjs' ? 'esm' : 'iife',
-    canonical: `${bundleName(features)}.min.${extension}`,
+    canonical: `${bundleName(features)}${logs ? '' : '.nolog'}.min.${extension}`,
   };
 }
 
@@ -53,7 +69,13 @@ const toIdentifier = (feature) =>
   feature.replace(/-(\w)/g, (_, letter) => letter.toUpperCase());
 
 // `fast` skips swc: esbuild's own mangling, ~30 ms but ~3% larger.
-async function bundleFeatures({ features, format = 'esm', outfile, fast }) {
+async function bundleFeatures({
+  features,
+  format = 'esm',
+  outfile,
+  fast,
+  logs = true,
+}) {
   const contents = [
     `import Hls from './core.mjs';`,
     ...features.map(
@@ -67,7 +89,7 @@ async function bundleFeatures({ features, format = 'esm', outfile, fast }) {
   ].join('\n');
 
   const result = await esbuild.build({
-    stdin: { contents, resolveDir: SPLIT, loader: 'js' },
+    stdin: { contents, resolveDir: splitDir(logs), loader: 'js' },
     bundle: true,
     format,
     target: 'es2017',
@@ -92,7 +114,14 @@ async function bundleFeatures({ features, format = 'esm', outfile, fast }) {
   return code;
 }
 
-module.exports = { bundleFeatures, featureCodes, parseBundleName };
+module.exports = {
+  bundleFeatures,
+  featureCodes,
+  getPreset,
+  parseBundleName,
+  presets,
+  splitDir,
+};
 
 if (require.main === module) {
   const args = process.argv.slice(2);
@@ -105,10 +134,19 @@ if (require.main === module) {
     'out',
     `dist/hls.custom.min.${format === 'esm' ? 'mjs' : 'js'}`,
   );
+  const noLogsFlag = args.indexOf('--no-logs');
+  if (noLogsFlag !== -1) args.splice(noLogsFlag, 1);
+  const features = Object.keys(featureCodes).filter((feature) =>
+    args.some(
+      (arg) => arg === feature || getPreset(arg)?.features.includes(feature),
+    ),
+  );
+  const logs =
+    noLogsFlag === -1 && !args.some((arg) => getPreset(arg)?.logs === false);
   const start = Date.now();
-  bundleFeatures({ features: args, format, outfile }).then(() =>
+  bundleFeatures({ features, format, outfile, logs }).then(() =>
     console.log(
-      `${outfile} (${args.join(', ') || 'core only'}) in ${Date.now() - start} ms`,
+      `${outfile} (${features.join(', ') || 'core only'}${logs ? '' : ', no logs'}) in ${Date.now() - start} ms`,
     ),
   );
 }

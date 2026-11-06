@@ -192,6 +192,7 @@ export default class GapController extends TaskLoop {
         this.skipRetry = this.nudgeRetry = 0;
         // When crossing between buffered video time ranges, but not audio, flush pipeline with seek (Chrome)
         if (
+          __USE_RECOVERY__ &&
           config.nudgeOnVideoHole &&
           !pausedEndedOrHalted &&
           currentTime > lastCurrentTime
@@ -380,6 +381,9 @@ export default class GapController extends TaskLoop {
   }
 
   private nudgeOnVideoHole(currentTime: number, lastCurrentTime: number) {
+    if (!__USE_RECOVERY__) {
+      return;
+    }
     // Chrome will play one second past a hole in video buffered time ranges without rendering any video from the subsequent range and then stall as long as audio is buffered:
     // https://github.com/video-dev/hls.js/issues/5631
     // https://issues.chromium.org/issues/40280613#comment10

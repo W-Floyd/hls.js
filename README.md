@@ -209,6 +209,17 @@ Only specific flavors (known configs are: `full`, `fullMin`, `fullEsm`, `fullEsm
 npm run build -- --configType fullMin # repeat --configType to build more than one
 ```
 
+`light` is a preset: its features are listed in `src/features/presets.json`, and `full` has every feature in `src/features/codes.json`. A preset can add `"logs": false` to strip logs (see `USE_LOGS` below). `minimal` is core alone without logs; it is only assembled (`hls-minimal.min.js` on the bundle server), not prebuilt. Any feature can be switched per build with `USE_<FEATURE>=0|1` (e.g. `USE_SUBTITLES=1 npm run build -- --configType lightMin`). The same presets and features assemble single-file bundles from the split build without recompiling: `node scripts/bundle-features.js --format iife light subtitles` (`--no-logs`, or a preset without logs, assembles from `dist/core-nolog`, built by `--configType coreNoLogs`).
+
+Two build-time switches trade debuggability and resilience for size. Both default to on and apply to every config built:
+
+- `USE_LOGS=0` removes log/debug/info/warn calls (errors still log), so `debug: true` prints almost nothing.
+- `USE_RECOVERY=0` removes fragment and playlist retries, level and redundant-stream failover, ABR's abort of slow in-flight fragments, the append timeout, and Chrome's video-hole nudge. Load, parse and worker errors become fatal at once, for players that fall back to another source on a fatal error. Raise `fragLoadPolicy` timeouts for slow origins, since a timeout is no longer retried.
+
+```
+USE_LOGS=0 USE_RECOVERY=0 npm run build -- --configType core
+```
+
 Report the size of the built `dist/` files, and check them against the budgets in
 `dist-size-budget.json` (the same check CI runs):
 

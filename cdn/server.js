@@ -11,6 +11,10 @@
  *   GET /hls-<codes>.min.mjs   ES module, e.g. /hls-ts-subs.min.mjs
  *   GET /hls-<codes>.min.js    classic script setting self.Hls
  *   GET /hls-core.min.mjs      no optional features
+ *   GET /hls-<codes>.nolog.min.mjs  same, assembled from the log-stripped split
+ *                              build (dist/core-nolog)
+ *   GET /hls-light.min.mjs     a preset (src/features/presets.json, or `full`):
+ *                              redirects to its /hls-<codes>[.nolog] name
  *   GET /features              feature names and their codes
  *   GET /hls-auto.min.mjs      loader that picks a bundle per stream (src/auto.ts);
  *   GET /hls-auto.min.js       classic-script form, global HlsAuto
@@ -30,11 +34,14 @@ const {
   bundleFeatures,
   featureCodes,
   parseBundleName,
+  presets,
+  splitDir,
 } = require('../scripts/bundle-features');
 
 const PORT = Number(process.env.PORT) || 8080;
 const CACHE_CONTROL = process.env.CACHE_CONTROL || 'public, max-age=3600';
-const SPLIT = path.resolve(__dirname, '..', 'dist', 'core');
+// .nolog bundles need the log-stripped split build; without it they 404.
+const HAS_NOLOG_SPLIT = fs.existsSync(splitDir(false));
 // The auto loader (src/auto.ts), served as-is.
 const LOADERS = {
   'hls-auto.min.mjs': path.resolve(__dirname, '..', 'dist', 'hls.auto.min.mjs'),
@@ -56,8 +63,10 @@ const BUILD_ID = (() => {
         else if (entry.name.endsWith('.mjs'))
           hash.update(fs.readFileSync(file));
       });
-  walk(SPLIT);
+  walk(splitDir(true));
+  if (HAS_NOLOG_SPLIT) walk(splitDir(false));
   hash.update(fs.readFileSync(require.resolve('../scripts/bundle-features')));
+  hash.update(JSON.stringify([featureCodes, presets]));
   hash.update(fs.readFileSync(__filename));
   Object.values(LOADERS).forEach((file) => hash.update(fs.readFileSync(file)));
   hash.update(require('esbuild').version);
@@ -213,7 +222,7 @@ const background = (label, promise) =>
   promise.catch((error) => console.error(`failed ${label}:`, error));
 
 // `tier` is '' (optimized) or FAST.
-function ensureBuild(name, { features, format }, tier) {
+function ensureBuild(name, { features, format, logs }, tier) {
   const file = path.join(CACHE_DIR, name + tier);
   // Never recreate a fast build once the optimized one exists; the caller's
   // read then fails and it retries with the optimized file.
@@ -222,10 +231,15 @@ function ensureBuild(name, { features, format }, tier) {
   }
   return once(file, async () => {
     const start = Date.now();
-    const code = await bundleFeatures({ features, format, fast: !!tier });
+    const code = await bundleFeatures({
+      features,
+      format,
+      logs,
+      fast: !!tier,
+    });
     await writeAtomic(file, Buffer.from(code));
     console.log(
-      `generated ${name + tier} (${features.join(', ') || 'core'}) in ${Date.now() - start} ms`,
+      `generated ${name + tier} (${features.join(', ') || 'core'}${logs ? '' : ', no logs'}) in ${Date.now() - start} ms`,
     );
     if (!tier) {
       // The optimized build supersedes the fast one.
@@ -366,12 +380,21 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (name === 'features') {
-    send(res, 200, `${JSON.stringify({ build: BUILD_ID, featureCodes })}\n`, {
-      'Content-Type': 'application/json',
-    });
+    send(
+      res,
+      200,
+      `${JSON.stringify({ build: BUILD_ID, featureCodes, presets })}\n`,
+      {
+        'Content-Type': 'application/json',
+      },
+    );
     return;
   }
   const parsed = parseBundleName(name);
+  if (parsed && !parsed.logs && !HAS_NOLOG_SPLIT) {
+    send(res, 404, `No log-stripped (.nolog) build on this server.\n`);
+    return;
+  }
   if (!parsed) {
     send(
       res,

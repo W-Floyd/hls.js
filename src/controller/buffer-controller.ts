@@ -2243,7 +2243,7 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => (key === 'initSe
     track.ending = false;
     track.ended = false;
 
-    if (this.hls.config.appendTimeout !== Infinity) {
+    if (__USE_RECOVERY__ && this.hls.config.appendTimeout !== Infinity) {
       const appendTimeoutTime = this.calculateAppendTimeoutTime(sb);
 
       track.bufferAppendTimeoutId = self.setTimeout(
@@ -2260,6 +2260,9 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => (key === 'initSe
     sb: ExtendedSourceBuffer,
     appendTimeoutTime: number,
   ) {
+    if (!__USE_RECOVERY__) {
+      return;
+    }
     this.log(
       `Received timeout after ${appendTimeoutTime}ms for append on ${type} source buffer. Aborting and triggering error.`,
     );
@@ -2279,6 +2282,9 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => (key === 'initSe
   }
 
   private calculateAppendTimeoutTime(sb: ExtendedSourceBuffer): number {
+    if (!__USE_RECOVERY__) {
+      return 0;
+    }
     let targetDuration = DEFAULT_TARGET_DURATION;
 
     if (this.details) {

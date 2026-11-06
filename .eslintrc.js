@@ -52,6 +52,7 @@ module.exports = {
     __USE_METADATA__: true,
     __USE_LATENCY__: true,
     __USE_PROGRESSIVE__: true,
+    __USE_RECOVERY__: true,
   },
   // see https://github.com/standard/eslint-config-standard
   // 'prettier' (https://github.com/prettier/eslint-config-prettier) must be last

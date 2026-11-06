@@ -2137,6 +2137,17 @@ export default class BaseStreamController
       this.state = State.ERROR;
       return;
     }
+    if (!__USE_RECOVERY__) {
+      // Skip GAP fragments; anything else is fatal (see ErrorController).
+      if (gapTagEncountered) {
+        errorAction.resolved = true;
+        this.state = State.IDLE;
+      } else {
+        this.state = State.ERROR;
+      }
+      this.tickImmediate();
+      return;
+    }
     const { action, flags, retryCount = 0, retryConfig } = errorAction;
     const couldRetry = !!retryConfig;
     const retry = couldRetry && action === NetworkErrorAction.RetryRequest;
@@ -2559,7 +2570,7 @@ export default class BaseStreamController
   }
 
   protected recoverWorkerError(data: ErrorData) {
-    if (data.event === 'demuxerWorker') {
+    if (__USE_RECOVERY__ && data.event === 'demuxerWorker') {
       this.fragmentTracker.removeAllFragments();
       if (this.transmuxer) {
         this.transmuxer.destroy();

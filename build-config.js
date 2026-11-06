@@ -10,6 +10,7 @@ const istanbul = require('rollup-plugin-istanbul');
 const fs = require('fs');
 
 const featureCodes = require('./src/features/codes.json');
+const presets = require('./src/features/presets.json');
 
 const pkgJson = JSON.parse(
   fs.readFileSync('./package.json', { encoding: 'utf-8' }),
@@ -51,51 +52,50 @@ function readFeatureFlag(name, ...aliases) {
   return envName ? parseEnvToggle(env[envName]) : undefined;
 }
 
-function isFeatureEnabled(type, explicit, enableInLight = false) {
-  return explicit ?? (type === BUILD_TYPE.full || enableInLight);
-}
+const camelCase = (name) =>
+  name.replace(/-(\w)/g, (_, letter) => letter.toUpperCase());
+
+// Optional features by flag key (`alt-audio` -> `altAudio`, env USE_ALT_AUDIO).
+const featureNames = {};
+Object.keys(featureCodes).forEach((name) => {
+  featureNames[camelCase(name)] = name;
+});
 
 const flags = {
-  subtitles: readFeatureFlag('SUBTITLES', 'SUBTITLE'),
-  altAudio: readFeatureFlag('ALT_AUDIO'),
-  emeDrm: readFeatureFlag('EME_DRM'),
-  cmcd: readFeatureFlag('CMCD'),
-  contentSteering: readFeatureFlag('CONTENT_STEERING'),
-  variableSubstitution: readFeatureFlag('VARIABLE_SUBSTITUTION'),
   m2tsAdvancedCodecs: readFeatureFlag('M2TS_ADVANCED_CODECS'),
-  mediaCapabilities: readFeatureFlag('MEDIA_CAPABILITIES'),
-  interstitials: readFeatureFlag('INTERSTITIALS'),
-  iframes: readFeatureFlag('IFRAMES'),
-  mpegTs: readFeatureFlag('MPEG_TS'),
-  capLevel: readFeatureFlag('CAP_LEVEL'),
-  fps: readFeatureFlag('FPS'),
-  metadata: readFeatureFlag('METADATA'),
-  latency: readFeatureFlag('LATENCY'),
-  progressive: readFeatureFlag('PROGRESSIVE'),
   logs: readFeatureFlag('LOGS'),
+  recovery: readFeatureFlag('RECOVERY'),
 };
+Object.entries(featureNames).forEach(([key, name]) => {
+  const envName = name.toUpperCase().replace(/-/g, '_');
+  flags[key] =
+    key === 'subtitles'
+      ? readFeatureFlag(envName, 'SUBTITLE')
+      : readFeatureFlag(envName);
+});
 
+// A build type's features: `full` has all, `light` its preset from
+// src/features/presets.json (also served by cdn/server.js). A preset's
+// `"logs": false` strips logs. Env flags override.
 function getFeatureSupport(type) {
+  const preset =
+    type === BUILD_TYPE.light
+      ? presets.light
+      : { features: Object.keys(featureCodes) };
+  const support = {};
+  Object.entries(featureNames).forEach(([key, name]) => {
+    support[key] = flags[key] ?? preset.features.includes(name);
+  });
   return {
-    subtitles: isFeatureEnabled(type, flags.subtitles),
-    altAudio: isFeatureEnabled(type, flags.altAudio),
-    emeDrm: isFeatureEnabled(type, flags.emeDrm),
-    cmcd: isFeatureEnabled(type, flags.cmcd),
-    contentSteering: isFeatureEnabled(type, flags.contentSteering, true),
-    variableSubstitution: isFeatureEnabled(type, flags.variableSubstitution),
-    m2tsAdvancedCodecs: isFeatureEnabled(type, flags.m2tsAdvancedCodecs),
-    mediaCapabilities: isFeatureEnabled(type, flags.mediaCapabilities),
-    interstitials: isFeatureEnabled(type, flags.interstitials),
-    iframes: isFeatureEnabled(type, flags.iframes),
-    mpegTs: isFeatureEnabled(type, flags.mpegTs, true),
-    capLevel: isFeatureEnabled(type, flags.capLevel, true),
-    fps: isFeatureEnabled(type, flags.fps, true),
-    metadata: isFeatureEnabled(type, flags.metadata, true),
-    latency: isFeatureEnabled(type, flags.latency, true),
-    progressive: isFeatureEnabled(type, flags.progressive, true),
+    ...support,
+    // HEVC and AC-3 in MPEG-TS.
+    m2tsAdvancedCodecs: flags.m2tsAdvancedCodecs ?? type === BUILD_TYPE.full,
     // USE_LOGS=0 strips log/debug/info/warn calls (~7 KiB br off core);
     // errors still log.
-    logs: isFeatureEnabled(type, flags.logs, true),
+    logs: flags.logs ?? preset.logs !== false,
+    // USE_RECOVERY=0 drops retries, level/redundant failover and recovery
+    // heuristics: errors go fatal so the page can fall back (e.g. to MP4).
+    recovery: flags.recovery ?? true,
   };
 }
 
@@ -132,6 +132,7 @@ const buildConstants = (
     __USE_METADATA__: JSON.stringify(features.metadata),
     __USE_LATENCY__: JSON.stringify(features.latency),
     __USE_PROGRESSIVE__: JSON.stringify(features.progressive),
+    __USE_RECOVERY__: JSON.stringify(features.recovery),
 
     ...additional,
   },
@@ -499,12 +500,16 @@ const coreFeatures = Object.keys(featureCodes);
 
 // Code-split ESM: `core` plus one entry per feature. Feature code is compiled
 // in (full flags) but only reaches a client that imports its entry.
-const buildCoreRollupConfig = ({ minified }) => {
+// `logs: false` builds dist/core-nolog, which presets with `"logs": false`
+// assemble from.
+const buildCoreRollupConfig = ({ minified, logs = true }) => {
+  const featureSupport = getFeatureSupport(BUILD_TYPE.full);
   const base = buildRollupConfig({
     type: BUILD_TYPE.full,
     format: FORMAT.esm,
     minified,
     input: './src/exports-core.ts',
+    featureSupport: logs ? featureSupport : { ...featureSupport, logs: false },
   });
   const input = { core: './src/exports-core.ts' };
   coreFeatures.forEach((name) => {
@@ -516,7 +521,7 @@ const buildCoreRollupConfig = ({ minified }) => {
     input,
     output: {
       format: FORMAT.esm,
-      dir: minified ? './dist/core.min' : './dist/core',
+      dir: `./dist/core${logs ? '' : '-nolog'}${minified ? '.min' : ''}`,
       entryFileNames: '[name].mjs',
       chunkFileNames: 'chunks/[name].mjs',
       sourcemap: true,
@@ -602,6 +607,7 @@ const configs = Object.entries({
   }),
   core: buildCoreRollupConfig({ minified: false }),
   coreMin: buildCoreRollupConfig({ minified: true }),
+  coreNoLogs: buildCoreRollupConfig({ minified: false, logs: false }),
   autoEsm: buildAutoRollupConfig(FORMAT.esm),
   autoUmd: buildAutoRollupConfig(FORMAT.umd),
   worker: {

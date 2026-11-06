@@ -19,6 +19,7 @@ declare const __USE_FPS__: boolean;
 declare const __USE_METADATA__: boolean;
 declare const __USE_LATENCY__: boolean;
 declare const __USE_PROGRESSIVE__: boolean;
+declare const __USE_RECOVERY__: boolean;
 
 // __IN_WORKER__ is provided from a closure call around the final UMD bundle.
 declare const __IN_WORKER__: boolean;

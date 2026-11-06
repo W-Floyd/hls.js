@@ -1,0 +1,17 @@
+{
+  "light": {
+    "features": [
+      "mpeg-ts",
+      "content-steering",
+      "metadata",
+      "latency",
+      "cap-level",
+      "fps",
+      "progressive"
+    ]
+  },
+  "minimal": {
+    "features": [],
+    "logs": false
+  }
+}

@@ -159,7 +159,9 @@ class AbrController extends Logger implements AbrComponentAPI {
       this.partCurrent = data.part ?? null;
     }
     this.clearTimer();
-    this.timer = self.setInterval(this._abandonRulesCheck, 100);
+    if (__USE_RECOVERY__) {
+      this.timer = self.setInterval(this._abandonRulesCheck, 100);
+    }
   }
 
   protected onLevelSwitching(
@@ -242,7 +244,7 @@ class AbrController extends Logger implements AbrComponentAPI {
     */
   private _abandonRulesCheck = (levelLoaded?: Level) => {
     const { fragCurrent: frag, partCurrent: part, hls } = this;
-    if (!hls) {
+    if (!__USE_RECOVERY__ || !hls) {
       return;
     }
     const { autoLevelEnabled, media } = hls;
