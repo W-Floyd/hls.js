@@ -1,8 +1,4 @@
-import {
-  fragOverlapsQueuedInterstitial,
-  interstitialsEnabled,
-  State,
-} from './base-stream-controller';
+import { interstitialsEnabled, State } from './base-stream-controller';
 import { getNextFrag } from './fragment-finders';
 import { ErrorDetails, ErrorTypes } from '../errors';
 import { Events } from '../events';
@@ -776,7 +772,7 @@ function withInterstitialBoundary(
     const nextFrag = getNextFrag(levelDetails, frag.sn);
     if (
       nextFrag?.level === frag.level &&
-      fragOverlapsQueuedInterstitial(
+      hls.config.interstitialsController!.fragOverlapsQueuedInterstitial(
         nextFrag,
         hls.interstitialsManager.playerQueue,
         currentTime,

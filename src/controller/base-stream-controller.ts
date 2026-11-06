@@ -50,7 +50,6 @@ import { appendUint8Array } from '../utils/mp4-tools';
 import { timeRangesToString } from '../utils/time-ranges';
 import type { HlsConfig } from '../config';
 import type { FragmentTracker } from './fragment-tracker';
-import type { HlsAssetPlayer } from './interstitial-player';
 import type TransmuxerInterface from '../demux/transmuxer-interface';
 import type Hls from '../hls';
 import type { FragmentLoadProgressCallback } from '../loader/fragment-loader';
@@ -1717,60 +1716,21 @@ export default class BaseStreamController
     frag: T | null,
     details: LevelDetails | undefined,
   ): T | null {
-    if (!frag) {
-      return frag;
-    }
+    const { config } = this;
     if (
-      interstitialsEnabled(this.config) &&
-      ('type' in frag ? frag : frag.fragment).type !==
+      !frag ||
+      !interstitialsEnabled(config) ||
+      ('type' in frag ? frag : frag.fragment).type ===
         PlaylistLevelType.SUBTITLE
     ) {
-      // Do not load fragments outside the buffering schedule segment
-      const interstitials = this.hls.interstitialsManager;
-      const bufferingItem = interstitials?.bufferingItem;
-      if (bufferingItem) {
-        const bufferingInterstitial = bufferingItem.event;
-        if (bufferingInterstitial) {
-          // Do not stream fragments while buffering Interstitial Events (except for overlap at the start)
-          if (
-            !bufferingInterstitial.appendInPlace &&
-            (Math.abs(frag.start - bufferingItem.start) > 1 ||
-              bufferingItem.start === 0)
-          ) {
-            return null;
-          }
-        } else {
-          // Limit fragment loading to media in schedule item
-          if (frag.end <= bufferingItem.start && details?.live === false) {
-            // fragment ends by schedule item start
-            // this.fragmentTracker.fragBuffered(frag, true);
-            return null;
-          }
-          if (frag.start >= bufferingItem.end && bufferingItem.nextEvent) {
-            // fragment is past schedule item end
-            // allow some overflow when not appending in place to prevent stalls
-            if (
-              (bufferingItem.nextEvent.appendInPlace &&
-                !bufferingItem.nextEvent.hasPlayed) ||
-              frag.start - bufferingItem.end > 1
-            ) {
-              return null;
-            }
-          }
-        }
-      }
-      // Skip loading of fragments that overlap completely with appendInPlace interstitials
-      if (
-        fragOverlapsQueuedInterstitial(
-          frag,
-          interstitials?.playerQueue,
-          this.playhead,
-        )
-      ) {
-        return null;
-      }
+      return frag;
     }
-    return frag;
+    return config.interstitialsController!.filterReplacedPrimary(
+      frag,
+      details,
+      this.hls.interstitialsManager,
+      this.playhead,
+    );
   }
 
   getNextPart(
@@ -2856,32 +2816,6 @@ export default class BaseStreamController
     }
     this.tickImmediate();
   }
-}
-
-export function fragOverlapsQueuedInterstitial(
-  frag: MediaFragment | Part,
-  playerQueue: HlsAssetPlayer[] | undefined,
-  playhead: number,
-): boolean {
-  if (__USE_INTERSTITIALS__ && playerQueue) {
-    for (let i = playerQueue.length; i--; ) {
-      const interstitial = playerQueue[i].interstitial;
-      const start = interstitial.startTime;
-      const end = Math.min(
-        start + interstitial.duration,
-        interstitial.resumeTime,
-      );
-      if (interstitial.appendInPlace) {
-        if (frag.start >= start && frag.end <= end) {
-          return true;
-        }
-        if (playhead > frag.start && frag.end > start && frag.start < end) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
 }
 
 export function interstitialsEnabled(config: Readonly<HlsConfig>): boolean {

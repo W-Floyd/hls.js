@@ -1,5 +1,9 @@
 import { createDoNothingErrorAction } from './error-controller';
 import { findFragmentByPTS } from './fragment-finders';
+import {
+  filterReplacedPrimary,
+  fragOverlapsQueuedInterstitial,
+} from './interstitial-fragment-filter';
 import { HlsAssetPlayer } from './interstitial-player';
 import {
   type InterstitialScheduleEventItem,
@@ -100,6 +104,11 @@ export default class InterstitialsController
   extends Logger
   implements NetworkComponentAPI
 {
+  // Reached through config.interstitialsController so core doesn't bundle them.
+  static readonly filterReplacedPrimary = filterReplacedPrimary;
+  static readonly fragOverlapsQueuedInterstitial =
+    fragOverlapsQueuedInterstitial;
+
   private readonly HlsPlayerClass: typeof Hls;
   private readonly hls: Hls;
   private readonly assetListLoader: AssetListLoader;
